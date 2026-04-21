@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+
+  - job_name: 'booking-service'
+    static_configs:
+      - targets: ['booking-service:8001']
+
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:8002']
+
+  - job_name: 'seat-service'
+    static_configs:
+      - targets: ['seat-service:8003']
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8004']

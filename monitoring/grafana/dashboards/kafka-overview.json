@@ -1,0 +1,63 @@
+{
+  "dashboard": {
+    "title": "Kafka Overview",
+    "tags": ["kafka", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Kafka Cluster Health",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "kafka_brokers_count",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "title": "Topics Count",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "kafka_topics_count",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "title": "Messages In/Out",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "kafka_messages_in",
+            "refId": "A",
+            "legendFormat": "Messages In"
+          },
+          {
+            "expr": "kafka_messages_out",
+            "refId": "B",
+            "legendFormat": "Messages Out"
+          }
+        ]
+      }
+    ]
+  }
+}

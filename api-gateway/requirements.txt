@@ -1,0 +1,135 @@
+# api-gateway/requirements.txt
+#
+# Dependencies for the API Gateway service.
+#
+# Pin every package to an exact version (==) so that builds are fully
+# reproducible - the same image built today and in six months will have
+# identical behaviour. When you want to upgrade a package, change the
+# version here explicitly and test before committing.
+#
+# To regenerate this file from scratch after adding new packages:
+#   pip freeze > requirements.txt
+#
+# To upgrade a single package safely:
+#   pip install --upgrade <package> && pip freeze | grep <package>
+
+
+# ──────────────────────────────────────────
+# WEB FRAMEWORK
+# ──────────────────────────────────────────
+
+# FastAPI - the main web framework. Provides routing, dependency injection,
+# automatic OpenAPI/Swagger docs at /docs, and request validation via Pydantic.
+fastapi==0.111.0
+
+# Uvicorn - the ASGI server that runs the FastAPI app inside the container.
+# [standard] includes extras like uvloop (faster event loop) and httptools
+# (faster HTTP parsing), both of which improve throughput under load.
+uvicorn[standard]==0.29.0
+
+
+# ──────────────────────────────────────────
+# KAFKA
+# ──────────────────────────────────────────
+
+# confluent-kafka - the official high-performance Kafka client for Python,
+# built on top of librdkafka (C library). Used to publish booking events
+# to Kafka topics from the producer.py module.
+confluent-kafka==2.4.0
+
+
+# ──────────────────────────────────────────
+# DATA VALIDATION & SERIALIZATION
+# ──────────────────────────────────────────
+
+# Pydantic v2 - used for all request/response models and for deserializing
+# shared Kafka event schemas from shared/schemas.py.
+# FastAPI depends on Pydantic internally, but pinning it here ensures
+# we always get v2 (FastAPI supports both v1 and v2).
+pydantic==2.7.1
+
+# pydantic-settings - loads environment variables from the .env file into
+# a typed Settings class (used in app/config.py). Replaces the older
+# pydantic BaseSettings that was split out in Pydantic v2.
+pydantic-settings==2.2.1
+
+# email-validator - required by Pydantic to validate EmailStr fields.
+# Without this, Pydantic raises an ImportError when EmailStr is used.
+email-validator==2.1.1
+
+
+# ──────────────────────────────────────────
+# DATABASE
+# ──────────────────────────────────────────
+
+# SQLAlchemy - the ORM used to interact with PostgreSQL.
+# Version 2.x has a fully async-native API which pairs well with FastAPI.
+sqlalchemy==2.0.30
+
+# asyncpg - the async PostgreSQL driver that SQLAlchemy uses under the hood
+# when connecting with the postgresql+asyncpg:// URL scheme.
+# It is significantly faster than psycopg2 for async workloads.
+asyncpg==0.29.0
+
+# alembic - database migration tool for SQLAlchemy. Tracks schema changes
+# in version-controlled migration files so the DB can be upgraded or rolled
+# back without data loss.
+alembic==1.13.1
+
+
+# ──────────────────────────────────────────
+# AUTHENTICATION & SECURITY
+# ──────────────────────────────────────────
+
+# python-jose - JSON Web Token (JWT) library used to issue and verify
+# access tokens for authenticated API endpoints.
+# [cryptography] adds the RSA/EC signing backends.
+python-jose[cryptography]==3.3.0
+
+# passlib - password hashing library. Used to hash and verify user passwords
+# before storing them in the database.
+# [bcrypt] adds the bcrypt hashing algorithm, which is the recommended choice.
+passlib[bcrypt]==1.7.4
+
+# python-multipart - required by FastAPI to parse form data and file uploads.
+# Needed for the login endpoint which accepts username/password as form fields.
+python-multipart==0.0.9
+
+
+# ──────────────────────────────────────────
+# HTTP CLIENT
+# ──────────────────────────────────────────
+
+# httpx - async-native HTTP client. Used to make outbound requests to
+# external APIs (e.g. flight data providers) and in tests to call the
+# FastAPI app without spinning up a real server.
+httpx==0.27.0
+
+
+# ──────────────────────────────────────────
+# OBSERVABILITY
+# ──────────────────────────────────────────
+
+# prometheus-client - exposes a /metrics endpoint that Prometheus scrapes
+# to collect request counts, latency histograms, and Kafka publish metrics.
+prometheus-client==0.20.0
+
+# python-json-logger - formats all log output as structured JSON so that
+# log aggregators (Grafana Loki, Datadog, ELK) can parse and query logs
+# without brittle regex patterns.
+python-json-logger==2.0.7
+
+
+# ──────────────────────────────────────────
+# UTILITIES
+# ──────────────────────────────────────────
+
+# python-dotenv - loads variables from the .env file into os.environ at
+# startup. Pydantic-settings uses this under the hood, but having it
+# explicitly listed avoids surprises if the settings module is refactored.
+python-dotenv==1.0.1
+
+# tenacity - retry library used to add exponential backoff to Kafka producer
+# connections and any outbound HTTP calls that might fail transiently on
+# container startup before dependencies are fully ready.
+tenacity==8.3.0
