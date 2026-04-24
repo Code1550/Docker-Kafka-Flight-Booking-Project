@@ -1,4 +1,199 @@
-kafka-python==2.0.2
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.23
-alembic==1.12.1
+# payment-service/requirements.txt
+#
+# Dependencies for the Payment Service.
+#
+# The Payment Service consumes SeatReservedEvent messages from `seat.reserved`,
+# processes payments via Stripe (or a mock), writes transaction records to
+# PostgreSQL, and publishes PaymentProcessedEvent or PaymentFailedEvent to
+# downstream topics.
+#
+# Compared to booking-service/requirements.txt this file adds:
+#   - stripe          → official Stripe SDK for payment processing
+#   - cryptography    → Stripe webhook signature verification
+#   - httpx           → async HTTP client for outbound Stripe API calls
+#
+# Compared to api-gateway/requirements.txt this file removes:
+#   - fastapi         → Payment Service has no HTTP server
+#   - uvicorn         → no web server needed
+#   - python-jose     → no JWT auth (internal service, not client-facing)
+#   - passlib         → no password hashing
+#   - python-multipart → no form data parsing
+#
+# Pin every package to an exact version (==) for fully reproducible builds.
+#
+# To regenerate after adding a new package:
+#   pip freeze > requirements.txt
+#
+# To upgrade a single package safely:
+#   pip install --upgrade <package> && pip freeze | grep <package>
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# KAFKA
+# ──────────────────────────────────────────────────────────────────────────────
+
+# confluent-kafka — high-performance Kafka client built on librdkafka (C).
+# Used for:
+#   - Consuming SeatReservedEvent from seat.reserved
+#   - Producing PaymentProcessedEvent to payment.processed
+#   - Producing PaymentFailedEvent to payment.failed
+#   - Writing unprocessable messages to booking.failed.dlq
+# Must match the version pinned in every other service to avoid protocol skew.
+confluent-kafka==2.4.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PAYMENT PROCESSING
+# ──────────────────────────────────────────────────────────────────────────────
+
+# stripe — official Stripe Python SDK.
+# Used to create PaymentIntents, confirm charges, handle card declines,
+# and process refunds. In local development the STRIPE_MOCK_ENABLED flag
+# in .env bypasses actual Stripe calls and returns mock responses instead,
+# so no real API key is needed to run the project locally.
+# In production: set STRIPE_MOCK_ENABLED=false and provide a real key.
+stripe==9.9.0
+
+# cryptography — provides the primitives needed to verify Stripe webhook
+# signatures (HMAC-SHA256). Stripe signs every webhook payload so consumers
+# can confirm the request genuinely originated from Stripe and was not
+# tampered with in transit.
+# Also used by confluent-kafka internally when connecting to a Kafka cluster
+# configured with SSL/TLS mutual authentication.
+cryptography==42.0.8
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DATA VALIDATION & SERIALIZATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Pydantic v2 — deserializes raw Kafka JSON payloads into typed event models
+# from shared/schemas.py and validates payment request/response data before
+# it is passed to the Stripe SDK or written to PostgreSQL.
+pydantic==2.7.1
+
+# pydantic-settings — loads .env variables into a typed Settings class.
+# Payment Service settings include Stripe API key, webhook secret, retry
+# limits, and mock mode flag — all validated at startup rather than at
+# first use to surface misconfiguration immediately.
+pydantic-settings==2.2.1
+
+# email-validator — required by Pydantic to validate EmailStr fields
+# present in PassengerDetail inside SeatReservedEvent. Stripe also accepts
+# an email for receipt sending — validated here before the API call.
+email-validator==2.1.1
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DATABASE
+# ──────────────────────────────────────────────────────────────────────────────
+
+# SQLAlchemy 2.x — async ORM used to write payment transaction records to
+# PostgreSQL. The Payment Service owns the payments table and is the only
+# service that writes to it.
+sqlalchemy==2.0.30
+
+# asyncpg — async PostgreSQL driver used by SQLAlchemy with the
+# postgresql+asyncpg:// connection URL. Handles concurrent DB writes
+# efficiently under the async consumer loop.
+asyncpg==0.29.0
+
+# alembic — database migration tool. Payment Service owns the payments
+# table so its migration files live in payment-service/alembic/.
+# entrypoint.sh runs `alembic upgrade head` on every container start.
+alembic==1.13.1
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# HTTP CLIENT
+# ──────────────────────────────────────────────────────────────────────────────
+
+# httpx — async HTTP client used for two purposes:
+#   1. Making outbound calls to the Stripe API (or the Stripe mock server)
+#      when STRIPE_MOCK_ENABLED=false. The stripe SDK uses httpx internally
+#      in async mode via stripe.http_client.HTTPXClient.
+#   2. Health-checking the Stripe mock server on startup to confirm it is
+#      reachable before the consumer begins processing payment events.
+# httpx is preferred over requests because it is async-native and does not
+# block the event loop during I/O-bound Stripe API calls.
+httpx==0.27.0
+
+# certifi — up-to-date Mozilla CA certificate bundle used by httpx when
+# verifying SSL certificates on outbound HTTPS connections to Stripe.
+# Keeps TLS verification current independently of the system CA store,
+# which may be outdated on the slim base image.
+certifi==2024.2.2
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ASYNC RUNTIME
+# ──────────────────────────────────────────────────────────────────────────────
+
+# uvloop — high-performance drop-in replacement for Python's default asyncio
+# event loop, built on libuv (the same library that powers Node.js).
+# Provides 2-4x throughput improvement for I/O-bound workloads, which is
+# particularly valuable here because the Payment Service makes an external
+# HTTP call to Stripe on every event — I/O dominates processing time.
+uvloop==0.19.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RETRY & RESILIENCE
+# ──────────────────────────────────────────────────────────────────────────────
+
+# tenacity — retry library used in three places in the Payment Service:
+#   1. Waiting for Kafka and PostgreSQL to be available on startup
+#   2. Retrying transient Stripe API errors (rate limits, network timeouts)
+#      with exponential backoff before marking a payment as failed
+#   3. Retrying transient PostgreSQL write failures before routing to DLQ
+#
+# Stripe recommends exponential backoff with jitter for retries — tenacity's
+# wait_exponential_jitter() strategy implements this out of the box.
+tenacity==8.3.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OBSERVABILITY
+# ──────────────────────────────────────────────────────────────────────────────
+
+# prometheus-client — exposes a /metrics endpoint on port 8002.
+# Payment Service metrics tracked:
+#   - payment_attempts_total           (labels: status=success|failed|retried)
+#   - payment_processing_duration_seconds (histogram per payment method)
+#   - stripe_api_errors_total          (labels: error_code=card_declined|...)
+#   - dlq_messages_total               (unprocessable events routed to DLQ)
+# These feed the Grafana dashboard for real-time payment success rate monitoring.
+prometheus-client==0.20.0
+
+# python-json-logger — structured JSON log output.
+# Every payment event log line includes booking_id, correlation_id,
+# payment_id, amount, currency, and stripe_error_code (when applicable)
+# as structured fields — parseable by Grafana Loki without regex.
+python-json-logger==2.0.7
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# UTILITIES
+# ──────────────────────────────────────────────────────────────────────────────
+
+# python-dotenv — loads .env variables into os.environ at startup.
+# pydantic-settings calls this internally but listing it explicitly avoids
+# surprises if the settings module is refactored.
+python-dotenv==1.0.1
+
+# python-dateutil — robust datetime parsing for departure_time and
+# arrival_time strings in SeatReservedEvent payloads. Stripe also returns
+# Unix timestamps that are converted to datetimes for storage in PostgreSQL.
+python-dateutil==2.9.0
+
+# freezegun — test utility that patches datetime.utcnow() and time.time()
+# so payment timestamp assertions in unit tests are deterministic.
+# Only used in tests but listed here (rather than a separate test-requirements
+# file) to keep the container self-contained — test suites run inside the
+# same container during CI without a separate install step.
+freezegun==1.5.0
+
+# faker — generates realistic fake passenger names, emails, card numbers,
+# and flight details for use in unit and integration tests. Like freezegun,
+# included here for CI convenience rather than a separate test requirements file.
+faker==25.2.0
