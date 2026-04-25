@@ -1,2 +1,147 @@
-kafka-python==2.0.2
-redis==5.0.0
+# seat-service/requirements.txt
+#
+# Dependencies for the Seat Service.
+#
+# The Seat Service consumes BookingRequestedEvent from `booking.requested`,
+# acquires distributed Redis locks on seats, publishes SeatReservedEvent
+# or SeatUnavailableEvent to downstream topics, and releases locks when
+# PaymentFailedEvent arrives on `payment.failed`.
+#
+# Compared to booking-service/requirements.txt this file:
+#   ADDS:
+#     - redis          → async Redis client for distributed seat locking
+#     - redis-py-lock  → distributed lock primitives built on redis-py
+#
+#   REMOVES:
+#     - sqlalchemy     → no PostgreSQL, all state lives in Redis
+#     - asyncpg        → no PostgreSQL driver needed
+#     - alembic        → no schema migrations, Redis is schema-less
+#     - python-dateutil → no complex datetime parsing needed
+#
+# Compared to payment-service/requirements.txt this file:
+#   REMOVES:
+#     - stripe         → no payment processing
+#     - cryptography   → no webhook signature verification
+#     - httpx          → no outbound HTTP calls
+#     - certifi        → no TLS certificate verification needed
+#     - freezegun      → fewer timestamp-sensitive code paths to test
+#     - faker          → simpler test data needs
+#
+# The Seat Service is deliberately the leanest service in the project —
+# its single responsibility (acquire and release Redis locks) requires
+# fewer dependencies than any other service.
+#
+# Pin every package to an exact version (==) for fully reproducible builds.
+#
+# To regenerate after adding a new package:
+#   pip freeze > requirements.txt
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# KAFKA
+# ──────────────────────────────────────────────────────────────────────────────
+
+# confluent-kafka — high-performance Kafka client built on librdkafka (C).
+# Used for:
+#   - Consuming BookingRequestedEvent from booking.requested
+#   - Consuming PaymentFailedEvent from payment.failed (lock release trigger)
+#   - Producing SeatReservedEvent to seat.reserved
+#   - Producing SeatUnavailableEvent to seat.unavailable
+#   - Writing unprocessable messages to booking.failed.dlq
+#
+# Must match the version pinned in every other service to avoid Kafka
+# protocol version skew across the compose network.
+confluent-kafka==2.4.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# REDIS — DISTRIBUTED SEAT LOCKING
+# ──────────────────────────────────────────────────────────────────────────────
+
+# redis — the official async Redis client for Python (redis-py).
+# Used to acquire, extend, and release seat locks stored as Redis keys.
+#
+# Why redis-py over aioredis?
+#   redis-py merged async support into the main package in version 4.2.0.
+#   aioredis is now deprecated and its maintainers recommend migrating to
+#   redis-py[hiredis]. Using redis-py avoids a dependency that is no longer
+#   actively maintained.
+#
+# [hiredis] installs the optional C extension parser (hiredis) which is
+# 10-30x faster than the pure Python RESP parser for high-throughput
+# Redis operations. Seat lock acquisitions happen on every booking.requested
+# event so parser speed is measurable at scale.
+redis[hiredis]==5.0.4
+
+# redis-py-lock — distributed lock primitives built on top of redis-py.
+# Implements the Redlock algorithm for distributed locking across multiple
+# Redis nodes (single-node in local dev, multi-node in production HA setup).
+#
+# Why use a library instead of raw SET NX EX?
+#   A raw SET NX EX command is sufficient for single-node Redis but has
+#   correctness issues on multi-node Redis clusters during node failover —
+#   the lock can be acquired by two clients simultaneously if the primary
+#   fails after writing the key but before replicating to the replica.
+#   redis-py-lock implements Redlock which safely handles this case by
+#   requiring a majority of nodes to acknowledge the lock acquisition.
+#
+# For local development with a single Redis node, redis-py-lock falls
+# back to a simple SET NX EX — no multi-node complexity needed locally.
+redis-py-lock==4.0.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DATA VALIDATION & SERIALIZATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Pydantic v2 — deserializes raw Kafka JSON payloads into typed event models
+# from shared/schemas.py. The Seat Service consumes two event types:
+#   - BookingRequestedEvent  (from booking.requested)
+#   - PaymentFailedEvent     (from payment.failed)
+# Both are deserialized via shared/schemas.py deserialize_event().
+pydantic==2.7.1
+
+# pydantic-settings — loads environment variables from .env into a typed
+# Settings class. Seat Service settings include Redis connection details,
+# lock TTL, Kafka bootstrap servers, and topic names.
+pydantic-settings==2.2.1
+
+# email-validator — required by Pydantic to validate EmailStr fields in
+# PassengerDetail inside BookingRequestedEvent. Without this package,
+# Pydantic raises ImportError when deserializing events that contain EmailStr.
+email-validator==2.1.1
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ASYNC RUNTIME
+# ──────────────────────────────────────────────────────────────────────────────
+
+# uvloop — high-performance async event loop built on libuv.
+# The Seat Service is heavily I/O-bound: every message involves a Redis
+# round trip (SET NX EX or DEL) plus two Kafka operations (consume + produce).
+# uvloop provides 2-4x better I/O throughput than the default asyncio loop,
+# which directly translates to more seat locks processed per second — important
+# during peak booking windows when many passengers compete for the same seats.
+uvloop==0.19.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RETRY & RESILIENCE
+# ──────────────────────────────────────────────────────────────────────────────
+
+# tenacity — retry library used in three places in the Seat Service:
+#   1. Waiting for Redis and Kafka to be available on startup (entrypoint.sh
+#      uses shell polling, but the consumer also has Python-level retries)
+#   2. Retrying transient Redis connection errors during lock acquisition
+#      (e.g. Redis primary failover in a multi-node setup)
+#   3. Retrying transient Kafka errors during SeatReservedEvent publish
+#      before routing to DLQ
+#
+# The Seat Service uses wait_exponential_jitter for Redis retries — the
+# same reasoning as the Payment Service producer: if Redis has an outage,
+# all consumers will retry simultaneously without jitter and create a
+# thundering herd when Redis recovers.
+tenacity==8.3.0
+
+
+# ───────────
