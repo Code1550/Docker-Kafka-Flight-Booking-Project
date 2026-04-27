@@ -1,47 +1,488 @@
+# monitoring/prometheus.yml
+#
+# Prometheus scrape configuration for the Flight Booking System.
+#
+# Prometheus pulls (scrapes) metrics from each service's /metrics endpoint
+# on a fixed interval. This file tells Prometheus where to find those
+# endpoints and how often to scrape them.
+#
+# How to access Prometheus:
+#   http://localhost:9090
+#   - Query metrics with PromQL in the "Graph" tab
+#   - Check scrape target health at Status → Targets
+#   - View loaded configuration at Status → Configuration
+#
+# How Grafana uses this:
+#   Grafana is configured with Prometheus as a data source (port 9090).
+#   Dashboard panels use PromQL queries against the metrics collected here.
+#   The pre-built dashboard at monitoring/grafana/dashboards/kafka-overview.json
+#   uses the metric names defined in each service's consumer.py and producer.py.
+#
+# Metric naming convention across all services:
+#   {service_name}_{noun}_{unit}_total   → Counters  (monotonically increasing)
+#   {service_name}_{noun}_{unit}         → Gauges    (can increase or decrease)
+#   {service_name}_{noun}_{unit}_seconds → Histograms (duration measurements)
+#
+# Port assignments (one Prometheus metrics server per service):
+#   API Gateway         → http://api-gateway:8000/metrics  (FastAPI route)
+#   Booking Service     → http://booking-service:8001       (prometheus_client)
+#   Payment Service     → http://payment-service:8002       (prometheus_client)
+#   Seat Service        → http://seat-service:8003          (prometheus_client)
+#   Notification Service→ http://notification-service:8004  (prometheus_client)
+#   Kafka Broker        → http://kafka:9101                  (JMX exporter)
+#   PostgreSQL          → http://postgres-exporter:9187      (postgres_exporter)
+#   Redis               → http://redis-exporter:9121         (redis_exporter)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GLOBAL CONFIGURATION
+# Defaults that apply to all scrape jobs unless overridden per-job.
+# ──────────────────────────────────────────────────────────────────────────────
+
 global:
+
+  # How often Prometheus scrapes each target.
+  # 15s is the standard production interval - short enough to catch transient
+  # spikes (a 30-second payment processing error would appear in 2 scrapes)
+  # without generating excessive load on the services being monitored.
+  # Lower this to 5s during active debugging - remember to revert for production.
   scrape_interval: 15s
+
+  # How long Prometheus waits for a scrape response before marking it as failed.
+  # Must be less than scrape_interval. 10s allows for slow service responses
+  # during peak load without immediately marking the target as DOWN.
+  scrape_timeout: 10s
+
+  # How often Prometheus evaluates alerting and recording rules.
+  # Set equal to scrape_interval so alerts fire within one scrape cycle
+  # of the triggering condition - prevents delayed alerting.
   evaluation_interval: 15s
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: []
+  # Labels added to ALL metrics collected by this Prometheus instance.
+  # Useful when aggregating metrics from multiple Prometheus instances
+  # (e.g. production + staging) in a single Grafana dashboard.
+  external_labels:
+    environment: "local"
+    project:     "flight-booking"
+    version:     "1.0.0"
 
-rule_files: []
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ALERTING CONFIGURATION
+# Connects Prometheus to Alertmanager for alert routing and notification.
+# Alertmanager is not included in this project's docker-compose.yml —
+# this block is provided as a production reference.
+# Uncomment and configure if you add Alertmanager to the compose stack.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#             - "alertmanager:9093"   # Alertmanager container hostname
+#       # How long to wait for Alertmanager to respond
+#       timeout: 10s
+#       # Path prefix if Alertmanager is behind a reverse proxy
+#       path_prefix: /
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RULE FILES
+# Alert rules and recording rules loaded from separate YAML files.
+# Keeps this file focused on scrape configuration - rules live in
+# monitoring/rules/ and are hot-reloaded by Prometheus without restart.
+# ──────────────────────────────────────────────────────────────────────────────
+
+rule_files:
+  # Alert rules - fire when metric conditions are breached
+  # e.g. "DLQ message count increased in last 5 minutes"
+  # - "rules/alert_rules.yml"
+
+  # Recording rules - pre-compute expensive PromQL expressions
+  # e.g. "booking confirmation rate over 5-minute window"
+  # - "rules/recording_rules.yml"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SCRAPE CONFIGURATIONS
+# One job per monitored target or group of targets.
+# Each job defines WHERE to scrape and WHAT labels to attach.
+# ──────────────────────────────────────────────────────────────────────────────
 
 scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
 
-  - job_name: 'kafka'
-    static_configs:
-      - targets: ['kafka:9092']
 
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
+  # ── PROMETHEUS SELF-MONITORING ─────────────────────────────────────────────
+  # Prometheus scrapes its own metrics so you can monitor the monitoring system.
+  # Useful for tracking scrape duration, scrape failures, and rule evaluation
+  # latency - critical for detecting when Prometheus itself is overloaded.
 
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
+  - job_name: "prometheus"
 
-  - job_name: 'api-gateway'
-    static_configs:
-      - targets: ['api-gateway:8000']
+    # Override global interval - scrape Prometheus itself more frequently
+    # so self-health issues are detected quickly.
+    scrape_interval: 15s
 
-  - job_name: 'booking-service'
     static_configs:
-      - targets: ['booking-service:8001']
+      - targets:
+          - "localhost:9090"
+        labels:
+          service:     "prometheus"
+          environment: "local"
 
-  - job_name: 'payment-service'
-    static_configs:
-      - targets: ['payment-service:8002']
 
-  - job_name: 'seat-service'
-    static_configs:
-      - targets: ['seat-service:8003']
+  # ── API GATEWAY ────────────────────────────────────────────────────────────
+  # The API Gateway exposes metrics via a FastAPI route at /metrics
+  # rather than a separate prometheus_client HTTP server.
+  # This is because the API Gateway already runs uvicorn on port 8000 —
+  # adding a second HTTP server on 8000+1=8001 would conflict with
+  # the Booking Service's metrics port.
 
-  - job_name: 'notification-service'
+  - job_name: "api-gateway"
+
+    scrape_interval: 15s
+
+    metrics_path: "/metrics"   # FastAPI route defined in main.py
+
     static_configs:
-      - targets: ['notification-service:8004']
+      - targets:
+          - "api-gateway:8000"
+        labels:
+          service:     "api-gateway"
+          component:   "http"
+          environment: "local"
+
+    # Relabel rules - transform or filter labels before storing metrics.
+    # These rules run on every scraped metric before it is written to
+    # Prometheus's time-series database.
+    metric_relabel_configs:
+
+      # Drop high-cardinality HTTP metrics that generate too many time series.
+      # The default Python prometheus_client exposes per-path HTTP metrics —
+      # paths with UUIDs (e.g. /bookings/a1b2c3...) create a new time series
+      # per booking, which can exhaust Prometheus memory over time.
+      # Keep only the /bookings aggregate and /health endpoint metrics.
+      - source_labels: [__name__, handler]
+        regex: "starlette_requests_total;/bookings/.*"
+        action: drop
+
+
+  # ── BOOKING SERVICE ────────────────────────────────────────────────────────
+  # Long-running Kafka consumer. Key metrics:
+  #   booking_service_messages_consumed_total{status="success|dlq"}
+  #   booking_service_processing_duration_seconds (histogram)
+  #   booking_service_dlq_messages_total
+  #   booking_service_consumer_lag_total
+
+  - job_name: "booking-service"
+
+    scrape_interval: 15s
+
+    # prometheus_client's start_http_server() uses /metrics by default
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "booking-service:8001"
+        labels:
+          service:     "booking-service"
+          component:   "consumer"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Add a human-readable status label to DLQ counter for Grafana display.
+      # Transforms booking_service_dlq_messages_total into a metric with
+      # a "severity=critical" label for alert rule targeting.
+      - source_labels: [__name__]
+        regex:         "booking_service_dlq_messages_total"
+        target_label:  "severity"
+        replacement:   "critical"
+
+
+  # ── PAYMENT SERVICE ────────────────────────────────────────────────────────
+  # Most business-critical service. Key metrics:
+  #   payment_service_attempts_total{status="success|failed|retried|dlq"}
+  #   payment_service_processing_duration_seconds (histogram - includes Stripe latency)
+  #   payment_service_stripe_errors_total{error_code="card_declined|rate_limit|..."}
+  #   payment_service_revenue_processed_total{currency="USD|EUR|..."}
+  #   payment_service_stripe_healthy (gauge - 1=healthy, 0=degraded)
+
+  - job_name: "payment-service"
+
+    # Scrape payment metrics more frequently than other services —
+    # payment failures are the highest-severity issue in the system
+    # and should be detected within one scrape cycle.
+    scrape_interval: 15s
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "payment-service:8002"
+        labels:
+          service:     "payment-service"
+          component:   "consumer"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Tag payment DLQ metrics with critical severity for alert routing
+      - source_labels: [__name__]
+        regex:         "payment_service_dlq_messages_total"
+        target_label:  "severity"
+        replacement:   "critical"
+
+      # Tag Stripe health gauge degradation for alert routing
+      - source_labels: [__name__]
+        regex:         "payment_service_stripe_healthy"
+        target_label:  "component"
+        replacement:   "stripe-integration"
+
+
+  # ── SEAT SERVICE ───────────────────────────────────────────────────────────
+  # Manages Redis distributed locks. Key metrics:
+  #   seat_service_lock_acquisitions_total{status="acquired|already_locked|redis_error"}
+  #   seat_service_lock_releases_total{reason="payment_failed|not_found|redis_error"}
+  #   seat_service_concurrent_seat_conflicts_total
+  #   seat_service_active_seat_locks (gauge - currently held lock count)
+  #   seat_service_redis_healthy (gauge - 1=healthy, 0=degraded)
+  #   seat_service_lock_acquisition_duration_seconds (histogram)
+
+  - job_name: "seat-service"
+
+    scrape_interval: 15s
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "seat-service:8003"
+        labels:
+          service:     "seat-service"
+          component:   "consumer"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Tag Redis health degradation for alert routing
+      - source_labels: [__name__]
+        regex:         "seat_service_redis_healthy"
+        target_label:  "component"
+        replacement:   "redis-integration"
+
+      # Tag concurrent conflict counter - spikes indicate stale seat availability
+      # data being shown to passengers on the booking frontend
+      - source_labels: [__name__]
+        regex:         "seat_service_concurrent_seat_conflicts_total"
+        target_label:  "alert_category"
+        replacement:   "inventory-inconsistency"
+
+
+  # ── NOTIFICATION SERVICE ───────────────────────────────────────────────────
+  # Final step in the event chain. Key metrics:
+  #   notification_service_sent_total{notification_type="email|sms|both",
+  #                                    status="success|failed|mock|dlq"}
+  #   notification_service_dispatch_duration_seconds (histogram - includes
+  #                                                   SendGrid/Twilio latency)
+  #   notification_service_sendgrid_errors_total{status_code="400|429|500|..."}
+  #   notification_service_twilio_errors_total{error_code="21211|..."}
+  #   notification_service_sendgrid_healthy (gauge)
+  #   notification_service_twilio_healthy (gauge)
+
+  - job_name: "notification-service"
+
+    scrape_interval: 15s
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "notification-service:8004"
+        labels:
+          service:     "notification-service"
+          component:   "consumer"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Tag SendGrid health degradation
+      - source_labels: [__name__]
+        regex:         "notification_service_sendgrid_healthy"
+        target_label:  "component"
+        replacement:   "sendgrid-integration"
+
+      # Tag Twilio health degradation
+      - source_labels: [__name__]
+        regex:         "notification_service_twilio_healthy"
+        target_label:  "component"
+        replacement:   "twilio-integration"
+
+
+  # ── KAFKA BROKER (via JMX Exporter) ───────────────────────────────────────
+  # Kafka exposes JVM and broker metrics via JMX. The prometheus/jmx-exporter
+  # sidecar translates JMX metrics into Prometheus format.
+  #
+  # To enable: add the JMX exporter as a Java agent to the Kafka container.
+  # See: https://github.com/prometheus/jmx_exporter
+  #
+  # Key Kafka metrics:
+  #   kafka_server_BrokerTopicMetrics_MessagesInPerSec   → ingress rate
+  #   kafka_server_BrokerTopicMetrics_BytesInPerSec      → bytes ingested
+  #   kafka_controller_KafkaController_ActiveControllerCount → leader health
+  #   kafka_log_Log_Size                                 → topic partition size
+  #   kafka_consumer_group_lag                           → consumer lag per group
+  #
+  # Consumer lag is the most important Kafka metric for this project —
+  # a rising lag on booking.requested means the Booking/Seat Service is
+  # processing slower than the API Gateway is producing.
+
+  - job_name: "kafka"
+
+    scrape_interval: 30s   # Kafka metrics change slowly - 30s is sufficient
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          # JMX exporter port - configure in docker-compose.yml by adding
+          # KAFKA_OPTS: "-javaagent:/jmx-exporter.jar=9101:/jmx-config.yml"
+          # to the kafka service environment block.
+          - "kafka:9101"
+        labels:
+          service:     "kafka"
+          component:   "broker"
+          environment: "local"
+
+    # Kafka JMX exports hundreds of metrics - drop the noisy ones that
+    # are not useful for application-level monitoring.
+    metric_relabel_configs:
+
+      # Drop per-replica metrics - too many time series for local dev
+      - source_labels: [__name__]
+        regex:         "kafka_cluster_Partition_.*"
+        action:        drop
+
+      # Keep only the consumer group metrics I care about
+      - source_labels: [__name__]
+        regex:         "kafka_consumer_group_(lag|current_offset|log_end_offset)"
+        action:        keep
+
+
+  # ── POSTGRESQL (via postgres_exporter) ────────────────────────────────────
+  # postgres_exporter connects to PostgreSQL and exposes database metrics
+  # in Prometheus format. Add to docker-compose.yml:
+  #
+  #   postgres-exporter:
+  #     image: prometheuscommunity/postgres-exporter
+  #     environment:
+  #       DATA_SOURCE_NAME: "postgresql://flightuser:flightsecret@postgres:5432/flightbooking?sslmode=disable"
+  #     ports:
+  #       - "9187:9187"
+  #
+  # Key PostgreSQL metrics:
+  #   pg_stat_database_tup_inserted     → row insert rate
+  #   pg_stat_database_tup_updated      → row update rate
+  #   pg_stat_database_numbackends      → active connections
+  #   pg_stat_user_tables_n_dead_tup    → dead tuples (need VACUUM)
+  #   pg_locks_count                    → lock contention
+  #   pg_stat_activity_count            → active queries by state
+
+  - job_name: "postgresql"
+
+    scrape_interval: 30s
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "postgres-exporter:9187"
+        labels:
+          service:     "postgresql"
+          component:   "database"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Add database name label to all PostgreSQL metrics for filtering
+      # when multiple databases share the same PostgreSQL instance
+      - target_label:  "database"
+        replacement:   "flightbooking"
+
+
+  # ── REDIS (via redis_exporter) ─────────────────────────────────────────────
+  # redis_exporter connects to Redis and exposes key metrics.
+  # Add to docker-compose.yml:
+  #
+  #   redis-exporter:
+  #     image: oliver006/redis_exporter
+  #     environment:
+  #       REDIS_ADDR:     "redis:6379"
+  #       REDIS_PASSWORD: "${REDIS_PASSWORD:-redissecret}"
+  #     ports:
+  #       - "9121:9121"
+  #
+  # Key Redis metrics for the Seat Service:
+  #   redis_connected_clients         → active connections to Redis
+  #   redis_used_memory_bytes         → total memory used by Redis
+  #   redis_keyspace_hits_total       → cache/lock hit rate
+  #   redis_keyspace_misses_total     → cache/lock miss rate
+  #   redis_commands_processed_total  → total Redis commands per second
+  #   redis_db_keys                   → total keys in db (= active seat locks)
+  #
+  # redis_db_keys is especially important - a value that keeps growing
+  # without corresponding reductions indicates seat locks are not being
+  # released (TTL not expiring or DEL not being called on payment.failed).
+
+  - job_name: "redis"
+
+    scrape_interval: 15s   # Seat lock changes happen frequently
+
+    metrics_path: "/metrics"
+
+    static_configs:
+      - targets:
+          - "redis-exporter:9121"
+        labels:
+          service:     "redis"
+          component:   "cache"
+          environment: "local"
+
+    metric_relabel_configs:
+
+      # Add Redis database index label for filtering
+      - target_label:  "redis_db"
+        replacement:   "db0"
+
+
+  # ── KAFKA UI ───────────────────────────────────────────────────────────────
+  # Kafka UI (provectuslabs/kafka-ui) exposes Spring Boot Actuator metrics
+  # at /actuator/prometheus if the Spring Boot Actuator is enabled.
+  # This is optional - Kafka UI is primarily a visual tool for the demo.
+  #
+  # To enable: add MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=prometheus
+  # to the kafka-ui service environment in docker-compose.yml.
+
+  - job_name: "kafka-ui"
+
+    scrape_interval: 60s   # Kafka UI metrics are low-value - scrape rarely
+
+    metrics_path: "/actuator/prometheus"
+
+    static_configs:
+      - targets:
+          - "kafka-ui:8080"
+        labels:
+          service:     "kafka-ui"
+          component:   "management"
+          environment: "local"
+
+    # Drop all JVM metrics from Kafka UI - not useful for application monitoring
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex:         "jvm_.*"
+        action:        drop
+
+      - source_labels: [__name__]
+        regex:         "process_.*"
+        action:        drop
