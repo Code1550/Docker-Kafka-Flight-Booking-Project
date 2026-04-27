@@ -73,21 +73,21 @@ confluent-kafka==2.4.0
 # event so parser speed is measurable at scale.
 redis[hiredis]==5.0.4
 
-# redis-py-lock - distributed lock primitives built on top of redis-py.
-# Implements the Redlock algorithm for distributed locking across multiple
-# Redis nodes (single-node in local dev, multi-node in production HA setup).
+# redsync - distributed lock primitives implementing the Redlock algorithm
+# for distributed locking across multiple Redis nodes (single-node in local dev,
+# multi-node in production HA setup).
 #
 # Why use a library instead of raw SET NX EX?
 #   A raw SET NX EX command is sufficient for single-node Redis but has
 #   correctness issues on multi-node Redis clusters during node failover —
 #   the lock can be acquired by two clients simultaneously if the primary
 #   fails after writing the key but before replicating to the replica.
-#   redis-py-lock implements Redlock which safely handles this case by
-#   requiring a majority of nodes to acknowledge the lock acquisition.
+#   Redlock safely handles this case by requiring a majority of nodes to
+#   acknowledge the lock acquisition.
 #
-# For local development with a single Redis node, redis-py-lock falls
+# For local development with a single Redis node, Redlock falls
 # back to a simple SET NX EX - no multi-node complexity needed locally.
-redis-py-lock==4.0.0
+redsync==2.0.0
 
 
 # ──────────────────────────────────────────────────────────────────────────────

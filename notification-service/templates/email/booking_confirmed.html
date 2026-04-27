@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+    .header { background: #003580; color: white; padding: 24px; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 22px; }
+    .body { background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .label { color: #666; font-size: 14px; }
+    .value { font-weight: bold; font-size: 14px; }
+    .booking-ref { background: #003580; color: white; font-size: 24px; text-align: center; padding: 16px; border-radius: 8px; letter-spacing: 4px; margin: 16px 0; }
+    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1> Your booking is confirmed!</h1>
+      <p style="margin:8px 0 0 0; opacity:0.9;">Hi {{ passenger.first_name }}, you're all set.</p>
+    </div>
+    <div class="body">
+      <div class="booking-ref">{{ booking_ref }}</div>
+      <div class="detail-row">
+        <span class="label">Flight</span>
+        <span class="value">{{ flight.flight_number }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Route</span>
+        <span class="value">{{ flight.origin }} → {{ flight.destination }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Departure</span>
+        <span class="value">{{ departure_date }} at {{ departure_time }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Arrival</span>
+        <span class="value">{{ arrival_date }} at {{ arrival_time }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Seat</span>
+        <span class="value">{{ flight.seat_number }} ({{ flight.seat_class | title }})</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Amount Paid</span>
+        <span class="value">{{ formatted_price }}</span>
+      </div>
+    </div>
+    <div class="footer">
+      <p>Questions? Contact us at {{ support_email }}</p>
+      <p>© {{ current_year }} Flight Booking System</p>
+    </div>
+  </div>
+</body>
+</html>

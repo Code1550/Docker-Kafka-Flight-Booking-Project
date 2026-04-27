@@ -1,0 +1,1 @@
+Booking Confirmed — {{ flight.flight_number }} {{ flight.origin }} → {{ flight.destination }} (Ref: {{ booking_ref }})
