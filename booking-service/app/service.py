@@ -96,7 +96,7 @@ class BookingService:
         will charge the passenger once the lock is confirmed.
 
         Why publish AFTER committing the DB write?
-          If we published to Kafka before committing and then the DB commit
+          If I published to Kafka before committing and then the DB commit
           failed, Kafka would have a seat.reserved event for a booking that
           does not exist in PostgreSQL — a phantom booking. Always write to
           the DB first, then publish to Kafka.
@@ -195,7 +195,7 @@ class BookingService:
         try:
             session.add(booking)
             # ── STEP 4: Commit ────────────────────────────────────────────────
-            # Commit before publishing to Kafka. If the commit fails we raise
+            # Commit before publishing to Kafka. If the commit fails I raise
             # and the consumer retries. If Kafka publish fails after the commit
             # the consumer retries — idempotency check at the top prevents
             # a duplicate booking record on re-delivery.

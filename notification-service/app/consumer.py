@@ -201,7 +201,7 @@ def _handle_shutdown(signum, frame) -> None:
 
     Why this matters:
       SendGrid's Web API returns 202 Accepted immediately and processes
-      the email asynchronously. The 202 response is what we commit the
+      the email asynchronously. The 202 response is what I commit the
       Kafka offset against. If SIGTERM fires between the SendGrid call
       and the 202 response, the passenger's email is queued in SendGrid
       but the offset is not committed — on restart, the booking.confirmed
@@ -256,7 +256,7 @@ def _build_consumer() -> Consumer:
 
         # Start from earliest — a missed notification means a confirmed
         # passenger never received their email. Better to re-send a
-        # duplicate (which we log) than to miss the notification entirely.
+        # duplicate (which I log) than to miss the notification entirely.
         "auto.offset.reset":      "earliest",
 
         # Manual commit — offset advances only after successful dispatch
@@ -332,7 +332,7 @@ def _send_to_dlq(
         raw_payload:   Original raw Kafka message bytes as a string.
         error_message: Human-readable description of why dispatch failed.
         booking_id:    The booking_id from the event (None if deserialization
-                       failed before we could extract it).
+                       failed before I could extract it).
         retry_count:   Number of dispatch attempts made before giving up.
     """
     dlq_event = BookingFailedDLQEvent(

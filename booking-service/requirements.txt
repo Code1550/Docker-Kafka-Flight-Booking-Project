@@ -2,7 +2,7 @@
 #
 # Dependencies for the Booking Service.
 #
-# The Booking Service is a pure Kafka consumer/producer — it has no HTTP
+# The Booking Service is a pure Kafka consumer/producer - it has no HTTP
 # server. Its job is to consume BookingRequestedEvent messages, write booking
 # records to PostgreSQL, and publish SeatReservedEvent or BookingFailedEvent
 # messages downstream. Dependencies are kept minimal to reflect that narrow
@@ -18,7 +18,7 @@
 # KAFKA
 # ──────────────────────────────────────────────────────────────────────────────
 
-# confluent-kafka — high-performance Kafka client built on librdkafka (C).
+# confluent-kafka - high-performance Kafka client built on librdkafka (C).
 # Used for both consuming BookingRequestedEvent from booking.requested and
 # producing SeatReservedEvent / BookingFailedDLQEvent to downstream topics.
 # Must match the version used in every other service to avoid protocol skew.
@@ -29,16 +29,16 @@ confluent-kafka==2.4.0
 # DATA VALIDATION & SERIALIZATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Pydantic v2 — deserializes raw Kafka JSON payloads into typed event models
+# Pydantic v2 - deserializes raw Kafka JSON payloads into typed event models
 # from shared/schemas.py and validates all data before it touches the database.
 pydantic==2.7.1
 
-# pydantic-settings — loads environment variables from .env into a typed
+# pydantic-settings - loads environment variables from .env into a typed
 # Settings class. Keeps all config in one place and surfaces missing vars
 # at startup rather than at runtime.
 pydantic-settings==2.2.1
 
-# email-validator — required by Pydantic to validate EmailStr fields present
+# email-validator - required by Pydantic to validate EmailStr fields present
 # in PassengerDetail inside the BookingRequestedEvent schema.
 email-validator==2.1.1
 
@@ -47,17 +47,17 @@ email-validator==2.1.1
 # DATABASE
 # ──────────────────────────────────────────────────────────────────────────────
 
-# SQLAlchemy 2.x — async-native ORM used to read and write booking records
+# SQLAlchemy 2.x - async-native ORM used to read and write booking records
 # and flight data in PostgreSQL. The async session pairs naturally with the
 # asyncio-based consumer loop.
 sqlalchemy==2.0.30
 
-# asyncpg — the async PostgreSQL driver used by SQLAlchemy when the connection
+# asyncpg - the async PostgreSQL driver used by SQLAlchemy when the connection
 # URL uses the postgresql+asyncpg:// scheme. Significantly faster than
 # psycopg2 for concurrent async workloads.
 asyncpg==0.29.0
 
-# alembic — database migration tool. Booking Service owns the bookings and
+# alembic - database migration tool. Booking Service owns the bookings and
 # flights tables, so migration files live in booking-service/alembic/.
 # Run `alembic upgrade head` inside the container to apply schema changes.
 alembic==1.13.1
@@ -67,13 +67,13 @@ alembic==1.13.1
 # ASYNC RUNTIME
 # ──────────────────────────────────────────────────────────────────────────────
 
-# asyncio is part of the Python standard library — no install needed.
+# asyncio is part of the Python standard library - no install needed.
 # However, uvloop is a faster drop-in replacement for the default event loop.
 # It is used here to improve throughput in the long-running consumer loop
 # where the service processes hundreds of events per second.
 uvloop==0.19.0
 
-# aiokafka is NOT used here — confluent-kafka's synchronous produce/consume
+# aiokafka is NOT used here - confluent-kafka's synchronous produce/consume
 # is wrapped with asyncio.run_in_executor() instead, consistent with the
 # approach used in the API Gateway. This keeps all services using the same
 # Kafka client and avoids managing two different client libraries.
@@ -83,7 +83,7 @@ uvloop==0.19.0
 # RETRY & RESILIENCE
 # ──────────────────────────────────────────────────────────────────────────────
 
-# tenacity — retry library used in two places:
+# tenacity - retry library used in two places:
 #   1. Waiting for Kafka to become available on container startup
 #   2. Retrying transient PostgreSQL write failures with exponential backoff
 #      before routing an event to the dead-letter queue
@@ -94,12 +94,12 @@ tenacity==8.3.0
 # OBSERVABILITY
 # ──────────────────────────────────────────────────────────────────────────────
 
-# prometheus-client — exposes a /metrics endpoint (or pushes to Pushgateway)
+# prometheus-client - exposes a /metrics endpoint (or pushes to Pushgateway)
 # with consumer lag, processing time, and error rate metrics that Grafana
 # visualises on the Kafka overview dashboard.
 prometheus-client==0.20.0
 
-# python-json-logger — formats all log output as structured JSON so log
+# python-json-logger - formats all log output as structured JSON so log
 # aggregators can parse fields like correlation_id, booking_id, and
 # error messages without fragile regex patterns.
 python-json-logger==2.0.7
@@ -109,17 +109,17 @@ python-json-logger==2.0.7
 # UTILITIES
 # ──────────────────────────────────────────────────────────────────────────────
 
-# python-dotenv — loads .env variables into os.environ at startup.
+# python-dotenv - loads .env variables into os.environ at startup.
 # pydantic-settings calls this internally, but listing it explicitly avoids
 # surprises if the settings module is ever refactored.
 python-dotenv==1.0.1
 
-# python-dateutil — robust datetime parsing used when deserializing
+# python-dateutil - robust datetime parsing used when deserializing
 # departure_time and arrival_time strings from Kafka event payloads that
 # may arrive in slightly varying ISO 8601 formats.
 python-dateutil==2.9.0
 
-# uuid is part of the Python standard library — no install needed.
+# uuid is part of the Python standard library - no install needed.
 # Listed here as a reminder that all booking_id and event_id generation
 # uses uuid.uuid4() from the standard library, not a third-party package.
 # uuid -- standard library, no install required

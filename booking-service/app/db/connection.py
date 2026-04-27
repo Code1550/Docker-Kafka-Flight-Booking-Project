@@ -168,12 +168,12 @@ AsyncSessionFactory: async_sessionmaker[AsyncSession] = async_sessionmaker(
     # With autoflush=True, SQLAlchemy flushes the session's pending INSERT/
     # UPDATE statements before every SELECT to ensure the query sees the
     # latest in-memory state. Disabling it gives us explicit control over
-    # when flushes happen, which is safer in a consumer where we want to
+    # when flushes happen, which is safer in a consumer where I want to
     # batch all writes and commit them together.
     autoflush=False,
 
     # Do not automatically begin a new transaction on session creation.
-    # We manage transactions explicitly via session.begin() or the
+    # I manage transactions explicitly via session.begin() or the
     # get_db_session() context manager below.
     autocommit=False,
 )
@@ -245,7 +245,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         # ── ROLLBACK on all other errors ──────────────────────────────────────
         # Catches non-SQLAlchemy exceptions that might be raised inside the
         # service method (e.g. a validation error, a Kafka publish failure).
-        # We still roll back because the session may have pending writes that
+        # I still roll back because the session may have pending writes that
         # should not be committed if the overall message processing failed.
         logger.error(
             "Unexpected error — rolling back database session",
@@ -258,7 +258,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     finally:
         # ── CLOSE — always ────────────────────────────────────────────────────
         # Returns the underlying connection to the pool regardless of whether
-        # we committed, rolled back, or hit an exception. Without this the
+        # I committed, rolled back, or hit an exception. Without this the
         # connection leaks and the pool is eventually exhausted.
         await session.close()
         logger.debug("Database session closed — connection returned to pool")

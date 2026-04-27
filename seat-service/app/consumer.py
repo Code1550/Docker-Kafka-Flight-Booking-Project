@@ -3,7 +3,7 @@
 # Main entry point for the Seat Service.
 #
 # This module runs a long-lived asyncio event loop that subscribes to
-# TWO Kafka topics simultaneously — unlike other services that each
+# TWO Kafka topics simultaneously - unlike other services that each
 # consume from a single topic:
 #
 #   booking.requested  → acquire a Redis seat lock, publish seat.reserved
@@ -17,11 +17,11 @@
 #   - One Kafka connection instead of two (lower broker overhead)
 #   - One consumer group registration (simpler rebalance logic)
 #   - Shared sentinel file and Prometheus metrics server
-#   - Lock acquisition and release stay in the same process — easier
+#   - Lock acquisition and release stay in the same process - easier
 #     to reason about the lifecycle of any individual seat lock
 #
 # Concurrency model:
-#   Same pattern as other services — confluent-kafka's synchronous poll()
+#   Same pattern as other services - confluent-kafka's synchronous poll()
 #   runs in asyncio's thread pool executor. Redis lock operations (SET NX EX,
 #   DEL) are async-native via redis-py's async client and run directly in
 #   the event loop without executor wrapping.
@@ -31,7 +31,7 @@
 #   message is fully processed (lock acquired/released AND Kafka event
 #   published). This is especially important here because a committed offset
 #   with no Redis lock operation would leave the seat in an inconsistent
-#   state — either locked with no event published (ghost lock) or unlocked
+#   state - either locked with no event published (ghost lock) or unlocked
 #   with a seat.reserved event already consumed by Payment Service
 #   (phantom booking).
 #
@@ -643,7 +643,7 @@ async def _handle_payment_failed(
       automatically after SEAT_LOCK_TTL_SECONDS (default 300s). The seat
       becomes available again without any action from the Seat Service.
       Routing to DLQ would be misleading — the situation self-heals.
-      We log a warning and retry instead.
+      I log a warning and retry instead.
 
     Args:
         msg:          The raw Kafka Message object.
@@ -673,7 +673,7 @@ async def _handle_payment_failed(
             topic=topic,
             status="deserialization_error",
         ).inc()
-        # Unlike booking.requested deserialization failures, we do not
+        # Unlike booking.requested deserialization failures, I do not
         # route payment.failed deserialization errors to the DLQ because:
         #   - No seat lock action was taken (nothing to roll back)
         #   - The lock TTL will expire automatically (self-healing)
@@ -880,7 +880,7 @@ async def _run_consumer_loop(
         # DLQ-routed messages and TTL self-healing cases both return True
         # so the partition advances and is not blocked by one bad message.
         # asynchronous=False ensures the broker acknowledges the commit
-        # before we poll the next message — correctness over speed.
+        # before I poll the next message - correctness over speed.
         await loop.run_in_executor(
             None,
             lambda: consumer.commit(message=msg, asynchronous=False),

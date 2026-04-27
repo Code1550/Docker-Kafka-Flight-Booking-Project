@@ -48,7 +48,7 @@
 #
 #   Stored alongside the seat lock to answer the question "which seat does
 #   this booking_id hold a lock on?" — needed when payment.failed arrives
-#   with only a booking_id and we need to derive the seat lock key to DEL.
+#   with only a booking_id and I need to derive the seat lock key to DEL.
 #   Value is the seat lock key: "seat_lock:{flight_id}:{seat_number}"
 
 from __future__ import annotations
@@ -191,7 +191,7 @@ class SeatService:
 
         if existing_lock_key:
             # This booking_id already acquired a lock on a previous delivery.
-            # Verify the seat lock key matches what we would acquire now —
+            # Verify the seat lock key matches what I would acquire now -
             # a mismatch indicates data corruption and should alert loudly.
             if existing_lock_key != lock_key:
                 logger.error(

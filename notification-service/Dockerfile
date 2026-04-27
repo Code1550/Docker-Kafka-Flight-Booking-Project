@@ -11,7 +11,7 @@
 # Key differences from other service Dockerfiles:
 #
 #   No PostgreSQL dependency:
-#     The Notification Service is stateless — it fires emails and exits.
+#     The Notification Service is stateless - it fires emails and exits.
 #     Notification history is handled by SendGrid's dashboard in production.
 #     No SQLAlchemy, no asyncpg, no alembic, no DB wait in entrypoint.sh.
 #
@@ -23,7 +23,7 @@
 #
 #   libssl3 and ca-certificates in runtime stage:
 #     Like the Payment Service, the Notification Service makes outbound
-#     HTTPS calls — to SendGrid's API (api.sendgrid.com) and optionally
+#     HTTPS calls - to SendGrid's API (api.sendgrid.com) and optionally
 #     Twilio's API. Both require TLS certificate verification against
 #     current root certificates.
 #
@@ -45,7 +45,7 @@
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 1 — builder
+# STAGE 1 - builder
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS builder
@@ -62,12 +62,12 @@ WORKDIR /build
 
 # Install build-time system dependencies.
 #
-# gcc          — C compiler for building the confluent-kafka C extension
-# librdkafka-dev — librdkafka headers and static library
-# python3-dev  — Python C headers required by C extensions
-# libssl-dev   — OpenSSL headers required by the cryptography package
+# gcc          - C compiler for building the confluent-kafka C extension
+# librdkafka-dev - librdkafka headers and static library
+# python3-dev  - Python C headers required by C extensions
+# libssl-dev   - OpenSSL headers required by the cryptography package
 #                used for SendGrid and Twilio HMAC signature verification
-# libffi-dev   — FFI headers required by the cryptography package
+# libffi-dev   - FFI headers required by the cryptography package
 #
 # libssl-dev and libffi-dev are included because the Notification Service
 # makes HTTPS calls to external APIs. The cryptography package (pulled in
@@ -84,7 +84,7 @@ RUN apt-get update && \
 
 # Copy requirements before source code.
 # Docker layer caching: pip install only reruns when requirements.txt
-# changes — code edits alone do not invalidate this layer, keeping
+# changes - code edits alone do not invalidate this layer, keeping
 # incremental build times fast during active development.
 COPY requirements.txt .
 
@@ -94,7 +94,7 @@ RUN pip install --upgrade pip && \
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 2 — runtime
+# STAGE 2 - runtime
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS runtime
@@ -104,25 +104,25 @@ ENV PYTHONUNBUFFERED=1
 
 # Install runtime-only system libraries.
 #
-# librdkafka1      — shared object that confluent-kafka links against at
+# librdkafka1      - shared object that confluent-kafka links against at
 #                    runtime. Without it the consumer crashes on startup:
 #                      ImportError: librdkafka.so.1: cannot open shared object
 #
-# libssl3          — OpenSSL runtime library for HTTPS calls to SendGrid
+# libssl3          - OpenSSL runtime library for HTTPS calls to SendGrid
 #                    and Twilio. Required by httpx when verifying TLS
 #                    certificates on outbound API connections.
 #
-# ca-certificates  — System CA certificate bundle for TLS verification.
+# ca-certificates  - System CA certificate bundle for TLS verification.
 #                    Without this, httpx raises SSL certificate errors when
 #                    connecting to api.sendgrid.com or api.twilio.com even
 #                    though the certificates are perfectly valid.
 #                    The slim base image ships with a minimal CA bundle
 #                    that may not include all root CAs used by SendGrid.
 #
-# Note: Unlike the Seat Service, we DO need libssl3 and ca-certificates
+# Note: Unlike the Seat Service, I DO need libssl3 and ca-certificates
 # here because the Notification Service makes outbound HTTPS calls.
-# Unlike the Payment Service, we do NOT need curl (no HTTP health probe
-# since there is no web server — we use the sentinel file pattern instead).
+# Unlike the Payment Service, I do NOT need curl (no HTTP health probe
+# since there is no web server - I use the sentinel file pattern instead).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         librdkafka1 \
@@ -144,7 +144,7 @@ WORKDIR /app
 # Compilers, headers, and build tools stay in the builder image.
 COPY --from=builder /install /usr/local
 
-# Copy application source code last — maximises Docker layer cache
+# Copy application source code last - maximises Docker layer cache
 # reuse on code-only changes (the most frequent change during development
 # of notification templates and SendGrid integration logic).
 COPY app/ ./app/
@@ -152,7 +152,7 @@ COPY app/ ./app/
 # Copy notification templates directory.
 # Email and SMS templates are stored as separate files rather than
 # hardcoded strings in service.py so they can be edited without
-# modifying Python code — important for marketing teams who need to
+# modifying Python code - important for marketing teams who need to
 # update confirmation email copy without a code review.
 #
 # Template engine (Jinja2) renders these at runtime with passenger
@@ -179,14 +179,14 @@ RUN chmod +x ./entrypoint.sh
 
 # Switch to non-root user before CMD.
 # The appuser has read access to /app (COPY'd files are owned by root
-# but world-readable) and write access is not needed — notification
+# but world-readable) and write access is not needed - notification
 # templates are read-only and there is no local file output.
 USER appuser
 
 # ── HEALTHCHECK ───────────────────────────────────────────────────────────────
-# Sentinel file pattern — no HTTP server to probe.
+# Sentinel file pattern - no HTTP server to probe.
 # The consumer loop touches /tmp/notification_consumer_heartbeat after
-# every processed notification event (success or mock — both count).
+# every processed notification event (success or mock - both count).
 #
 # --start-period=30s:
 #   Shortest start-period in the project — the Notification Service only

@@ -4,7 +4,7 @@
 --
 -- This file is automatically executed by the PostgreSQL Docker container
 -- on first startup via the docker-entrypoint-initdb.d/ mount defined in
--- docker-compose.yml. It runs exactly once — when the postgres_data volume
+-- docker-compose.yml. It runs exactly once - when the postgres_data volume
 -- is empty (fresh container). Subsequent container restarts skip this file
 -- because the volume already contains an initialised database.
 --
@@ -22,7 +22,7 @@
 --
 --   Each service owns its own table. Cross-service reads (e.g. Booking
 --   Service reading the flights table) are permitted. Cross-service writes
---   are not — enforced by convention in this project, and by PostgreSQL
+--   are not - enforced by convention in this project, and by PostgreSQL
 --   role permissions in production.
 --
 -- Migration strategy:
@@ -42,7 +42,7 @@
 --
 -- Timestamp strategy:
 --   All timestamps are TIMESTAMP WITHOUT TIME ZONE (naive UTC).
---   The application always inserts UTC values — no timezone conversion
+--   The application always inserts UTC values - no timezone conversion
 --   is performed at the database layer. This avoids ambiguity from
 --   PostgreSQL's timezone-aware TIMESTAMPTZ type when the application
 --   and database are in different timezones (common in cloud deployments).
@@ -52,13 +52,13 @@
 -- EXTENSIONS
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- pgcrypto — provides gen_random_uuid() for generating UUIDs in SQL.
+-- pgcrypto - provides gen_random_uuid() for generating UUIDs in SQL.
 -- Used in seed data INSERT statements to generate deterministic-looking
 -- UUIDs without hardcoding them. In application code, UUIDs are generated
--- by Python's uuid.uuid4() — this extension is only used here in SQL.
+-- by Python's uuid.uuid4() - this extension is only used here in SQL.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- pg_trgm — trigram indexing for ILIKE text search on flight numbers
+-- pg_trgm - trigram indexing for ILIKE text search on flight numbers
 -- and passenger names. Enables fast "search as you type" queries like:
 --   SELECT * FROM flights WHERE flight_number ILIKE '%AA1%';
 -- without a full table scan. Not strictly required for the resume project
@@ -88,20 +88,20 @@ SET timezone TO 'UTC';
 -- ─────────────────────────────────────────────────────────────────────────────
 -- CUSTOM TYPES (ENUMS)
 -- Using PostgreSQL enum types for status columns provides:
---   1. Storage efficiency — enums are stored as integers internally
---   2. Constraint enforcement — invalid values are rejected at the DB level
---   3. Self-documentation — pg_type catalog shows valid values
+--   1. Storage efficiency - enums are stored as integers internally
+--   2. Constraint enforcement - invalid values are rejected at the DB level
+--   3. Self-documentation - pg_type catalog shows valid values
 --
 -- Trade-off: adding a new enum value requires ALTER TYPE which takes a
 -- brief ACCESS EXCLUSIVE lock on the type. For high-write tables like
 -- bookings and payments, use VARCHAR with CHECK constraints instead
--- (already defined on the ORM models — the enums here are for reference
+-- (already defined on the ORM models - the enums here are for reference
 -- and are not used by the ORM models which use VARCHAR).
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Drop types if they exist from a previous partial initialisation.
 -- IF NOT EXISTS is not supported for CREATE TYPE in older PostgreSQL versions
--- so we DROP first with IF EXISTS as a safety net.
+-- so I DROP first with IF EXISTS as a safety net.
 DROP TYPE IF EXISTS booking_status_enum CASCADE;
 CREATE TYPE booking_status_enum AS ENUM (
     'requested',        -- BookingRequestedEvent received by Booking Service
@@ -188,7 +188,7 @@ CREATE TABLE flights (
     first_seats         INTEGER         NOT NULL    DEFAULT 0,
 
     -- ── PRICING (base fares per class) ───────────────────────────────────────
-    -- Stored here for display purposes — actual fare used in payment is
+    -- Stored here for display purposes - actual fare used in payment is
     -- determined by PaymentService._get_price_for_seat_class() which uses
     -- fixed prices per class. In production, a dynamic pricing service
     -- would calculate fares based on demand, advance purchase, and season.
@@ -304,7 +304,7 @@ CREATE TABLE bookings (
     correlation_id      VARCHAR(36)     NOT NULL,
 
     -- ── PASSENGER ────────────────────────────────────────────────────────────
-    -- Denormalised from BookingRequestedEvent — snapshot at time of booking.
+    -- Denormalised from BookingRequestedEvent - snapshot at time of booking.
     -- Immune to subsequent passenger profile updates.
     passenger_id            VARCHAR(36)     NOT NULL,
     passenger_first_name    VARCHAR(100)    NOT NULL,
@@ -314,7 +314,7 @@ CREATE TABLE bookings (
     passport_number         VARCHAR(20),
 
     -- ── FLIGHT ───────────────────────────────────────────────────────────────
-    -- Denormalised snapshot — preserves what was booked even if the flight
+    -- Denormalised snapshot - preserves what was booked even if the flight
     -- record is later amended (e.g. schedule change after booking).
     flight_id           VARCHAR(36)     NOT NULL,
     flight_number       VARCHAR(10)     NOT NULL,
@@ -347,7 +347,7 @@ CREATE TABLE bookings (
     failure_reason      TEXT,
 
     -- ── AUDIT TIMESTAMPS ──────────────────────────────────────────────────────
-    -- Set by Booking Service in UTC — not by PostgreSQL DEFAULT NOW().
+    -- Set by Booking Service in UTC - not by PostgreSQL DEFAULT NOW().
     -- See booking-service/app/db/models.py module docstring for rationale.
     requested_at        TIMESTAMP,
     confirmed_at        TIMESTAMP,
@@ -415,7 +415,7 @@ CREATE INDEX ix_bookings_status_requested_at
 CREATE INDEX ix_bookings_passenger_email
     ON bookings (passenger_email);
 
--- Partial index — confirmed bookings only (most common read pattern)
+-- Partial index - confirmed bookings only (most common read pattern)
 CREATE INDEX ix_bookings_confirmed
     ON bookings (passenger_id, confirmed_at)
     WHERE status = 'confirmed';
@@ -449,7 +449,7 @@ CREATE TABLE payments (
     payment_id          VARCHAR(36)     NOT NULL,
 
     -- ── BOOKING REFERENCE ─────────────────────────────────────────────────────
-    -- Not a foreign key — see payment-service/app/db/models.py for rationale.
+    -- Not a foreign key - see payment-service/app/db/models.py for rationale.
     booking_id          VARCHAR(36)     NOT NULL,
     correlation_id      VARCHAR(36)     NOT NULL,
 
@@ -567,10 +567,10 @@ CREATE INDEX ix_payments_transaction_ref_success
 
 COMMENT ON TABLE payments IS
     'Payment transaction records. Owned exclusively by Payment Service. '
-    'Written for every Stripe charge attempt — both successes and failures.';
+    'Written for every Stripe charge attempt - both successes and failures.';
 
 COMMENT ON COLUMN payments.booking_id IS
-    'Not a foreign key to bookings table — see payment-service/app/db/models.py. '
+    'Not a foreign key to bookings table - see payment-service/app/db/models.py. '
     'Unique constraint ensures one payment record per booking (idempotency anchor).';
 COMMENT ON COLUMN payments.transaction_ref IS
     'Stripe PaymentIntent ID. Used to look up charges in the Stripe dashboard.';
@@ -580,7 +580,7 @@ COMMENT ON COLUMN payments.transaction_ref IS
 -- UPDATED_AT TRIGGER
 -- Automatically updates the updated_at column on every UPDATE.
 -- Without this trigger, Booking Service would need to explicitly set
--- updated_at = NOW() on every UPDATE statement — easy to forget and
+-- updated_at = NOW() on every UPDATE statement - easy to forget and
 -- causes the column to become stale.
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -597,7 +597,7 @@ $$ LANGUAGE plpgsql;
 
 -- Apply the trigger to all three tables that have an updated_at column.
 -- BEFORE UPDATE ensures the timestamp is set before the row is written,
--- not after — so the updated_at value is consistent with the same transaction.
+-- not after - so the updated_at value is consistent with the same transaction.
 
 CREATE TRIGGER trg_flights_updated_at
     BEFORE UPDATE ON flights
@@ -879,7 +879,7 @@ INSERT INTO flights (
 -- SEED DATA VERIFICATION
 -- Sanity-check the seed data immediately after insertion.
 -- If any assertion fails, the entire initialisation script fails and
--- PostgreSQL rolls back — preventing a partially-seeded database.
+-- PostgreSQL rolls back - preventing a partially-seeded database.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 DO $$
@@ -924,7 +924,7 @@ END $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- VIEWS (optional — useful for Grafana and development queries)
+-- VIEWS (optional - useful for Grafana and development queries)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- View: booking summary with payment status joined
@@ -963,7 +963,7 @@ ORDER BY
 
 COMMENT ON VIEW v_booking_summary IS
     'Joined view of bookings + payments for dashboards and development queries. '
-    'Do not use in high-frequency application queries — use direct table access.';
+    'Do not use in high-frequency application queries - use direct table access.';
 
 
 -- View: flight availability summary
@@ -1053,7 +1053,7 @@ COMMENT ON VIEW v_flight_availability IS
 DO $$
 BEGIN
     RAISE NOTICE '========================================';
-    RAISE NOTICE 'Flight Booking System — DB Initialised';
+    RAISE NOTICE 'Flight Booking System - DB Initialised';
     RAISE NOTICE '  Tables:  flights, bookings, payments';
     RAISE NOTICE '  Views:   v_booking_summary, v_flight_availability';
     RAISE NOTICE '  Seed:    10 flights (2027 departures)';

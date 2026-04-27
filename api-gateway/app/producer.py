@@ -108,7 +108,7 @@ class KafkaProducer:
         self._connected: bool = False
 
         # confluent-kafka's Producer is thread-safe but not async-native.
-        # We run poll() in a background thread via asyncio's thread pool
+        # I run poll() in a background thread via asyncio's thread pool
         # executor. This lock prevents concurrent flush() and publish()
         # calls from interfering with each other.
         self._lock = asyncio.Lock()
@@ -127,7 +127,7 @@ class KafkaProducer:
     @retry(
         # Retry up to 10 times before giving up and crashing the container.
         # Docker's restart policy will then restart the container, which is
-        # the correct behaviour — if Kafka never becomes available, we should
+        # the correct behaviour - if Kafka never becomes available, I should
         # not silently stay up in a broken state.
         stop=stop_after_attempt(10),
 

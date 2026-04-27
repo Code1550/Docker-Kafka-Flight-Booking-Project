@@ -45,7 +45,7 @@ confluent-kafka==2.4.0
 # Pydantic v2 - used for all request/response models and for deserializing
 # shared Kafka event schemas from shared/schemas.py.
 # FastAPI depends on Pydantic internally, but pinning it here ensures
-# we always get v2 (FastAPI supports both v1 and v2).
+# I always get v2 (FastAPI supports both v1 and v2).
 pydantic==2.7.1
 
 # pydantic-settings - loads environment variables from the .env file into
