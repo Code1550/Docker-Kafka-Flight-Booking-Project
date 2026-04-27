@@ -23,5 +23,5 @@ echo "Running Alembic migrations..."
 alembic upgrade head
 echo "Migrations applied"
 
-echo "Starting Booking Service consumer..."
+echo "Starting Payment Service consumer..."
 exec python3 -m app.consumer

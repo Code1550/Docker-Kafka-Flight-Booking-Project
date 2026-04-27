@@ -1,0 +1,1 @@
+Confirmed! {{ flight.flight_number }} {{ flight.origin }}→{{ flight.destination }} {{ departure_date }} Seat {{ flight.seat_number }}. Ref: {{ booking_ref }}

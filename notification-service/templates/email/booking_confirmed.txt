@@ -1,0 +1,20 @@
+BOOKING CONFIRMED — Ref: {{ booking_ref }}
+
+Hi {{ passenger.first_name }},
+
+Your flight has been booked successfully.
+
+FLIGHT DETAILS
+--------------
+Flight:     {{ flight.flight_number }}
+Route:      {{ flight.origin }} → {{ flight.destination }}
+Departure:  {{ departure_date }} at {{ departure_time }}
+Arrival:    {{ arrival_date }} at {{ arrival_time }}
+Seat:       {{ flight.seat_number }} ({{ flight.seat_class | title }})
+Amount:     {{ formatted_price }}
+
+Keep your booking reference handy: {{ booking_ref }}
+
+Questions? Contact {{ support_email }}
+
+© {{ current_year }} Flight Booking System
