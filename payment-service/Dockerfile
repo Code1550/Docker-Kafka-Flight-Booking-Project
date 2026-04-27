@@ -8,7 +8,7 @@
 #   - Publishes PaymentProcessedEvent or PaymentFailedEvent to downstream topics
 #   - Writes payment transaction records to PostgreSQL
 #
-# Like the Booking Service, this is a headless worker — no HTTP server,
+# Like the Booking Service, this is a headless worker - no HTTP server,
 # no EXPOSE instruction. The CMD runs the consumer loop directly.
 #
 # Differences from booking-service/Dockerfile:
@@ -16,12 +16,12 @@
 #   - entrypoint.sh runs Payment Service specific migrations (payments table)
 #   - HEALTHCHECK sentinel file path is the same pattern but process is
 #     payment-specific
-#   - No alembic/ directory mounted — Payment Service owns only the
+#   - No alembic/ directory mounted - Payment Service owns only the
 #     payments table, migrations live in payment-service/alembic/
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 1 — builder
+# STAGE 1 - builder
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS builder
@@ -30,7 +30,7 @@ FROM python:3.11-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Ensures log output is sent to the terminal immediately without buffering.
-# Essential for a payment service — you want to see every transaction log
+# Essential for a payment service - you want to see every transaction log
 # in real time, not batched and delayed.
 ENV PYTHONUNBUFFERED=1
 
@@ -38,18 +38,18 @@ WORKDIR /build
 
 # Install build-time system dependencies required to compile confluent-kafka.
 # confluent-kafka is a C extension wrapping librdkafka. The slim base image
-# ships without a C compiler or the Kafka C headers so we install them here.
+# ships without a C compiler or the Kafka C headers so I install them here.
 #
-# gcc          — C compiler for building the confluent-kafka extension
-# librdkafka-dev — librdkafka C headers and static library
-# python3-dev  — Python C headers required by any C extension build
-# libssl-dev   — OpenSSL headers — required by confluent-kafka when Kafka
+# gcc          - C compiler for building the confluent-kafka extension
+# librdkafka-dev - librdkafka C headers and static library
+# python3-dev  - Python C headers required by any C extension build
+# libssl-dev   - OpenSSL headers - required by confluent-kafka when Kafka
 #                is configured with SSL/TLS (needed even for non-TLS local
 #                dev to avoid compile-time errors)
-# libffi-dev   — Foreign Function Interface headers required by cryptography
+# libffi-dev   - Foreign Function Interface headers required by cryptography
 #                package used for Stripe payload signature verification
 #
-# All build tools are installed in Stage 1 only — they are NOT copied to
+# All build tools are installed in Stage 1 only - they are NOT copied to
 # the runtime image, keeping the final image lean and attack-surface small.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -62,7 +62,7 @@ RUN apt-get update && \
 
 # Copy requirements before source code to maximise Docker layer cache hits.
 # The pip install layer is only invalidated when requirements.txt changes,
-# not on every application code edit — saves significant build time during
+# not on every application code edit - saves significant build time during
 # active development.
 COPY requirements.txt .
 
@@ -73,7 +73,7 @@ RUN pip install --upgrade pip && \
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 2 — runtime
+# STAGE 2 - runtime
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS runtime
@@ -83,16 +83,16 @@ ENV PYTHONUNBUFFERED=1
 
 # Install runtime-only system libraries.
 #
-# librdkafka1  — the compiled confluent-kafka extension dynamically links
+# librdkafka1  - the compiled confluent-kafka extension dynamically links
 #                against this shared object at runtime. Without it the
 #                consumer crashes on startup with:
 #                  ImportError: librdkafka.so.1: cannot open shared object file
 #
-# libssl3      — OpenSSL runtime library. Required by the cryptography package
+# libssl3      - OpenSSL runtime library. Required by the cryptography package
 #                used for Stripe webhook signature verification and by
 #                confluent-kafka for SSL/TLS Kafka connections.
 #
-# ca-certificates — system CA bundle. Required when making HTTPS requests
+# ca-certificates - system CA bundle. Required when making HTTPS requests
 #                   to the Stripe API (or any external payment gateway).
 #                   Without it, httpx raises SSL certificate verification
 #                   errors even against legitimate Stripe endpoints.
@@ -105,7 +105,7 @@ RUN apt-get update && \
 
 # Create a dedicated non-root user for the Payment Service process.
 # The Payment Service handles sensitive financial data and communicates
-# with payment gateways — running as non-root limits the blast radius
+# with payment gateways - running as non-root limits the blast radius
 # of any container escape or remote code execution vulnerability.
 RUN addgroup --system appgroup && \
     adduser  --system --ingroup appgroup appuser
@@ -113,13 +113,13 @@ RUN addgroup --system appgroup && \
 WORKDIR /app
 
 # Copy compiled Python packages from builder.
-# Only the installed packages are transferred — compilers, headers,
+# Only the installed packages are transferred - compilers, headers,
 # and build tools stay behind in the builder stage.
 COPY --from=builder /install /usr/local
 
 # Copy application source code.
 # Copying app/ last means all earlier layers (apt install, pip install)
-# are reused from cache on code-only changes — the most common case
+# are reused from cache on code-only changes - the most common case
 # during development.
 COPY app/ ./app/
 
@@ -153,8 +153,8 @@ RUN chmod +x ./entrypoint.sh
 USER appuser
 
 # ── HEALTHCHECK ──────────────────────────────────────────────────────────────
-# The Payment Service has no HTTP server so we use the same sentinel file
-# pattern as the Booking Service — the consumer loop touches this file on
+# The Payment Service has no HTTP server so I use the same sentinel file
+# pattern as the Booking Service - the consumer loop touches this file on
 # every successfully processed payment event.
 #
 # --start-period=90s   → longer than Booking Service (60s) because the

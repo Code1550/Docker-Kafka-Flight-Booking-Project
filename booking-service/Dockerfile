@@ -2,18 +2,18 @@
 #
 # Multi-stage build for the Booking Service.
 #
-# The Booking Service has no HTTP server — it is a long-running asyncio
+# The Booking Service has no HTTP server - it is a long-running asyncio
 # process that consumes from Kafka and writes to PostgreSQL. The Dockerfile
 # reflects this: there is no EXPOSE instruction and the CMD runs the consumer
 # loop directly rather than starting a web server.
 #
-# Stage 1 (builder) — installs Python dependencies in isolation
-# Stage 2 (runtime) — copies only what is needed to run, keeping the
+# Stage 1 (builder) - installs Python dependencies in isolation
+# Stage 2 (runtime) - copies only what is needed to run, keeping the
 #                     final image lean and free of compilers and build tools
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 1 — builder
+# STAGE 1 - builder
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS builder
@@ -23,7 +23,7 @@ FROM python:3.11-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Forces Python stdout and stderr to be unbuffered.
-# Critical for a consumer service — log lines appear in `docker compose logs`
+# Critical for a consumer service - log lines appear in `docker compose logs`
 # immediately rather than being held in a buffer until the process flushes.
 ENV PYTHONUNBUFFERED=1
 
@@ -31,14 +31,14 @@ WORKDIR /build
 
 # Install system-level build dependencies required by confluent-kafka.
 # confluent-kafka is a C extension that wraps librdkafka. The slim base image
-# ships without a C compiler or the Kafka C headers, so we install them here
-# in the builder stage only — they are NOT copied to the runtime stage,
+# ships without a C compiler or the Kafka C headers, so I install them here
+# in the builder stage only - they are NOT copied to the runtime stage,
 # keeping the final image small.
 #
-# gcc        — C compiler required to build the confluent-kafka extension
-# librdkafka-dev — librdkafka headers and static library
-# python3-dev — Python C headers required by any C extension build
-# --no-install-recommends — skips optional packages to minimise layer size
+# gcc        - C compiler required to build the confluent-kafka extension
+# librdkafka-dev - librdkafka headers and static library
+# python3-dev - Python C headers required by any C extension build
+# --no-install-recommends - skips optional packages to minimise layer size
 # Clean up apt cache in the same RUN layer to avoid bloating the image.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -49,7 +49,7 @@ RUN apt-get update && \
 
 # Copy requirements before source code.
 # Docker layer caching re-uses the pip install layer on every build unless
-# requirements.txt actually changes — code edits alone do not trigger
+# requirements.txt actually changes - code edits alone do not trigger
 # a full reinstall, saving significant build time during development.
 COPY requirements.txt .
 
@@ -63,7 +63,7 @@ RUN pip install --upgrade pip && \
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STAGE 2 — runtime
+# STAGE 2 - runtime
 # ──────────────────────────────────────────────────────────────────────────────
 
 FROM python:3.11-slim AS runtime
@@ -92,13 +92,13 @@ RUN addgroup --system appgroup && \
 WORKDIR /app
 
 # Copy installed Python packages from the builder stage.
-# Only the compiled packages are transferred — the C compiler, headers,
+# Only the compiled packages are transferred - the C compiler, headers,
 # and build tools stay behind in the builder image.
 COPY --from=builder /install /usr/local
 
 # Copy the application source code.
 # Copying app/ last means Docker can reuse all earlier layers (apt install,
-# pip install) when only application code changes — the most common case
+# pip install) when only application code changes - the most common case
 # during active development.
 COPY app/ ./app/
 
@@ -130,7 +130,7 @@ USER appuser
 
 # Health check for the Booking Service.
 # Unlike the API Gateway, there is no HTTP server to curl against.
-# Instead we check for a sentinel file that the consumer loop creates
+# Instead I check for a sentinel file that the consumer loop creates
 # (and updates its mtime) on every successfully processed message.
 # If the file is older than 60 seconds the consumer is considered stalled.
 #
@@ -144,7 +144,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Run the entrypoint script which handles migrations then starts the consumer.
 # Using the exec form (JSON array) so the Python process receives OS signals
-# directly rather than through a shell — this ensures SIGTERM triggers a
+# directly rather than through a shell - this ensures SIGTERM triggers a
 # clean shutdown (flush Kafka producer, close DB connections) instead of
 # being swallowed by the shell wrapper.
 ENTRYPOINT ["./entrypoint.sh"]

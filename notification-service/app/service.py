@@ -126,7 +126,7 @@ class NotificationService:
 
         SendGrid:
           Uses the official sendgrid-python SDK which wraps the SendGrid
-          Web API v3. The SDK is synchronous — we wrap its calls in
+          Web API v3. The SDK is synchronous - I wrap its calls in
           asyncio.run_in_executor() in _send_email() to avoid blocking
           the async event loop during the HTTPS request.
 

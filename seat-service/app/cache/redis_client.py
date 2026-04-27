@@ -14,7 +14,7 @@
 #   pool initialisation. These primitives bind to the event loop running
 #   at creation time. Creating the pool at module import time binds it
 #   to a temporary loop that asyncio.run() discards before any await
-#   is called — causing "Future attached to a different loop" errors.
+#   is called - causing "Future attached to a different loop" errors.
 #   create_redis_client() is called inside run_consumer() which runs
 #   inside the correct event loop, so the pool is always bound correctly.
 #
@@ -32,7 +32,7 @@
 #   seat_lock_owner:{booking_id}          → owner mapping (TTL = SEAT_LOCK_TTL_SECONDS)
 #
 #   Both keys share the same TTL so they expire together. A lock without
-#   an owner key (or vice versa) indicates a partial write — detectable
+#   an owner key (or vice versa) indicates a partial write - detectable
 #   by health check scripts that SCAN both key patterns.
 
 from __future__ import annotations
@@ -65,8 +65,8 @@ logger = logging.getLogger("seat-service.redis_client")
 # ──────────────────────────────────────────────────────────────────────────────
 # TYPE ALIAS
 # Used as a type hint throughout the cache package and in service.py.
-# Aliasing Redis here means if we ever switch to a different async Redis
-# client (e.g. coredis) we change one line here rather than every file
+# Aliasing Redis here means if I ever switch to a different async Redis
+# client (e.g. coredis) I change one line here rather than every file
 # that imports the client type.
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ async def create_redis_client(
                   Defaults to settings.REDIS_URL if not provided.
                   Overridden in tests to point at fakeredis.
         password: Redis AUTH password. Overrides the password in the URL
-                  if both are provided — useful when the password contains
+                  if both are provided - useful when the password contains
                   special characters that cannot be URL-encoded safely.
                   Defaults to settings.REDIS_PASSWORD.
 
@@ -160,7 +160,7 @@ async def create_redis_client(
         # The Seat Service performs 2-3 Redis operations per Kafka message
         # (acquire lock, set owner key, read owner key on idempotency check).
         # A pool of 10 supports ~3-4 concurrent messages being processed
-        # simultaneously — sufficient for a single consumer instance.
+        # simultaneously - sufficient for a single consumer instance.
         # Increase to 20 when running multiple consumer replicas.
         max_connections=10,
 
@@ -168,7 +168,7 @@ async def create_redis_client(
 
         # Decode Redis responses from bytes to Python strings automatically.
         # Without this, every GET returns b"seat_lock:..." instead of
-        # "seat_lock:..." — requiring explicit .decode("utf-8") calls
+        # "seat_lock:..." - requiring explicit .decode("utf-8") calls
         # throughout SeatLockManager. decode_responses=True eliminates this.
         #
         # Trade-off: binary data (e.g. serialized Protobuf) cannot be stored
@@ -181,15 +181,15 @@ async def create_redis_client(
         # Maximum seconds to wait for a new TCP connection to Redis.
         # If Redis is unreachable for longer than this, RedisConnectionError
         # is raised and tenacity retries the connection.
-        # Kept at 5s — entrypoint.sh ensures Redis is reachable before the
+        # Kept at 5s - entrypoint.sh ensures Redis is reachable before the
         # consumer starts, so a 5s timeout indicates a post-startup problem.
         socket_connect_timeout=5,
 
         # Maximum seconds to wait for a Redis command response (GET, SET, DEL).
-        # Seat lock operations must complete quickly — a 3s timeout is generous
+        # Seat lock operations must complete quickly - a 3s timeout is generous
         # for an in-memory Redis command that normally completes in <1ms.
         # If a command takes 3s, Redis is severely overloaded or the network
-        # is degraded — fail fast and let the consumer retry.
+        # is degraded - fail fast and let the consumer retry.
         socket_timeout=3,
 
         # Keep TCP connections alive between operations.
@@ -199,7 +199,7 @@ async def create_redis_client(
         # "Connection reset by peer" before the pool reconnects.
         socket_keepalive=True,
 
-        # TCP keepalive options — override OS defaults for faster detection
+        # TCP keepalive options - override OS defaults for faster detection
         # of dead connections. Values are in seconds.
         socket_keepalive_options={
             # Start sending keepalive probes after 60s of inactivity.
@@ -222,16 +222,16 @@ async def create_redis_client(
         # Automatically retry a command once if it times out before raising
         # RedisTimeoutError. Handles transient network blips without
         # propagating a timeout to the consumer's retry loop.
-        # Only retries once — repeated timeouts indicate a real problem.
+        # Only retries once - repeated timeouts indicate a real problem.
         retry_on_timeout=True,
 
         # ── CONNECTION HEALTH ─────────────────────────────────────────────────
 
         # Check connection health before returning from the pool.
         # Sends a PING before each command to verify the connection is
-        # still alive — prevents "Connection closed by server" errors
+        # still alive - prevents "Connection closed by server" errors
         # on connections that Redis dropped due to its own timeout.
-        # Small latency cost (~0.1ms) on every command — acceptable given
+        # Small latency cost (~0.1ms) on every command - acceptable given
         # that the alternative is a failed seat lock operation.
         health_check_interval=30,   # seconds between health checks
 

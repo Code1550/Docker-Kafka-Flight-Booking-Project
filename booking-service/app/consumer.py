@@ -11,7 +11,7 @@
 #   6. Updates a sentinel file on every message for the Docker health check
 #
 # Concurrency model:
-#   confluent-kafka's Consumer is synchronous. We run its poll() call in
+#   confluent-kafka's Consumer is synchronous. I run its poll() call in
 #   asyncio's thread pool executor so the event loop stays free to handle
 #   other coroutines (DB writes, Kafka produces) concurrently. This is the
 #   same pattern used in the API Gateway's producer.py.
@@ -19,7 +19,7 @@
 # Offset management:
 #   enable.auto.commit is set to False. Offsets are committed manually
 #   AFTER a message is fully processed and written to PostgreSQL. This
-#   guarantees at-least-once delivery — if the container crashes mid-
+#   guarantees at-least-once delivery - if the container crashes mid-
 #   processing, the message is re-delivered on restart rather than silently
 #   lost. Your service.py logic must be idempotent to handle re-delivery.
 
@@ -130,7 +130,7 @@ def _update_heartbeat() -> None:
 # checks on every iteration so it can finish the current message before exiting.
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Checked on every poll iteration — set to True by signal handlers
+# Checked on every poll iteration - set to True by signal handlers
 _shutdown_requested = False
 
 
@@ -162,10 +162,10 @@ def _build_consumer() -> Consumer:
     the entire process.
     """
     config = {
-        # Broker address — matches KAFKA_BOOTSTRAP_SERVERS in docker-compose
+        # Broker address - matches KAFKA_BOOTSTRAP_SERVERS in docker-compose
         "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
 
-        # Consumer group ID — all instances of this service share the same
+        # Consumer group ID - all instances of this service share the same
         # group so Kafka distributes partitions between them automatically.
         # Each partition is consumed by exactly one member of the group.
         "group.id": settings.KAFKA_CONSUMER_GROUP,
@@ -228,7 +228,7 @@ _dlq_producer: _KafkaProducer | None = None
 
 
 def _get_dlq_producer() -> _KafkaProducer:
-    """Lazy singleton — creates the DLQ producer on first use."""
+    """Lazy singleton - creates the DLQ producer on first use."""
     global _dlq_producer
     if _dlq_producer is None:
         _dlq_producer = _KafkaProducer(
@@ -250,7 +250,7 @@ def _send_to_dlq(
     The original raw payload is preserved as a string so engineers can
     inspect or replay it without needing to reconstruct the original event.
 
-    This function is synchronous — DLQ writes happen on error paths where
+    This function is synchronous - DLQ writes happen on error paths where
     we have already left the async context.
     """
     dlq_event = BookingFailedDLQEvent(
@@ -299,11 +299,11 @@ async def _process_message(
     Deserialize, validate, and process one Kafka message.
 
     Returns:
-        True  — message was processed successfully, safe to commit offset
-        False — message was unprocessable and has been routed to DLQ,
+        True  - message was processed successfully, safe to commit offset
+        False - message was unprocessable and has been routed to DLQ,
                 offset should still be committed to avoid infinite retry
 
-    The function never raises — all exceptions are caught, logged, and
+    The function never raises - all exceptions are caught, logged, and
     either retried (transient errors) or sent to the DLQ (permanent errors).
     """
     raw = msg.value().decode("utf-8") if msg.value() else ""
@@ -313,10 +313,10 @@ async def _process_message(
     try:
         event: BookingRequestedEvent = deserialize_event(topic, raw)
     except Exception as exc:
-        # Deserialization failure is a permanent error — retrying will not fix
+        # Deserialization failure is a permanent error - retrying will not fix
         # a malformed payload. Send straight to DLQ without retrying.
         logger.error(
-            "Failed to deserialize Kafka message — routing to DLQ",
+            "Failed to deserialize Kafka message - routing to DLQ",
             extra={
                 "topic":  topic,
                 "offset": msg.offset(),
@@ -395,7 +395,7 @@ async def _process_message(
             CONSUMER_LAG.inc()
 
             if is_last_attempt:
-                # All retries exhausted — route to DLQ so the message is
+                # All retries exhausted - route to DLQ so the message is
                 # not lost and can be inspected or replayed by an engineer.
                 MESSAGES_CONSUMED.labels(status="dlq").inc()
                 _send_to_dlq(
@@ -407,7 +407,7 @@ async def _process_message(
                 )
                 return False
 
-            # Wait before retrying — exponential backoff capped at 16s
+            # Wait before retrying - exponential backoff capped at 16s
             backoff = min(2 ** attempt, 16)
             logger.info(
                 f"Retrying in {backoff}s",
@@ -418,7 +418,7 @@ async def _process_message(
             )
             await asyncio.sleep(backoff)
 
-    # Should be unreachable — the loop always returns inside the for block
+    # Should be unreachable - the loop always returns inside the for block
     return False
 
 
@@ -461,7 +461,7 @@ async def _run_consumer_loop(
         # Run poll() in the thread executor so the async event loop is not
         # blocked while waiting for the broker to return messages.
         # timeout=1.0 means poll returns after 1 second even if no message
-        # is available — this keeps the shutdown check responsive.
+        # is available - this keeps the shutdown check responsive.
         msg: Message | None = await loop.run_in_executor(
             None,
             lambda: consumer.poll(timeout=1.0),
@@ -469,7 +469,7 @@ async def _run_consumer_loop(
 
         # ── NO MESSAGE ────────────────────────────────────────────────────────
         if msg is None:
-            # poll() returned without a message — topic is empty or we are
+            # poll() returned without a message - topic is empty or we are
             # caught up. Loop back and poll again.
             continue
 
@@ -478,7 +478,7 @@ async def _run_consumer_loop(
             error = msg.error()
 
             if error.code() == KafkaError._PARTITION_EOF:
-                # Reached the end of a partition — not an error, just means
+                # Reached the end of a partition - not an error, just means
                 # we have consumed all currently available messages.
                 logger.debug(
                     "Reached end of partition",
@@ -514,7 +514,7 @@ async def _run_consumer_loop(
         # Commit after processing regardless of success or DLQ routing.
         # This advances the consumer group offset so the message is not
         # re-delivered on the next poll. DLQ messages are preserved in
-        # the DLQ topic for inspection — they are not lost by committing here.
+        # the DLQ topic for inspection - they are not lost by committing here.
         await loop.run_in_executor(
             None,
             lambda: consumer.commit(message=msg, asynchronous=False),
@@ -529,7 +529,7 @@ async def _run_consumer_loop(
             },
         )
 
-    logger.info("Shutdown flag detected — exiting consumer loop cleanly")
+    logger.info("Shutdown flag detected - exiting consumer loop cleanly")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -542,7 +542,7 @@ async def run_consumer() -> None:
     Bootstrap the Booking Service consumer:
       1. Start the Prometheus metrics HTTP server
       2. Build the Kafka consumer and subscribe to the topic
-      3. Instantiate BookingService (which holds no state — just methods)
+      3. Instantiate BookingService (which holds no state - just methods)
       4. Run the poll loop until shutdown
       5. Close the consumer cleanly on exit
     """
@@ -554,7 +554,7 @@ async def run_consumer() -> None:
     logger.info("Prometheus metrics server started on port 8001")
 
     # Build the consumer and subscribe to the booking.requested topic.
-    # subscribe() accepts a list — you can add more topics later without
+    # subscribe() accepts a list - you can add more topics later without
     # changing the poll loop.
     consumer = _build_consumer()
     consumer.subscribe(
@@ -572,7 +572,7 @@ async def run_consumer() -> None:
         },
     )
 
-    # BookingService is stateless — safe to instantiate once and reuse
+    # BookingService is stateless - safe to instantiate once and reuse
     # across all messages. DB sessions are created per-message inside
     # _process_message() using the async context manager.
     booking_service = BookingService()
@@ -617,7 +617,7 @@ def _on_partition_assign(consumer: Consumer, partitions: list) -> None:
 def _on_partition_revoke(consumer: Consumer, partitions: list) -> None:
     """Logged when the broker revokes partitions (rebalance triggered)."""
     logger.info(
-        "Partitions revoked — rebalance in progress",
+        "Partitions revoked - rebalance in progress",
         extra={
             "partitions": [
                 {"topic": p.topic, "partition": p.partition}
@@ -644,8 +644,8 @@ if __name__ == "__main__":
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         logger.info("Using uvloop event loop")
     except ImportError:
-        # uvloop is not available on Windows — fall back to the default loop
-        logger.warning("uvloop not available — using default asyncio event loop")
+        # uvloop is not available on Windows - fall back to the default loop
+        logger.warning("uvloop not available - using default asyncio event loop")
 
     try:
         asyncio.run(run_consumer())

@@ -12,7 +12,7 @@
 #   7. Updates a sentinel file on every processed event for Docker health check
 #
 # Concurrency model:
-#   Same as booking-service/app/consumer.py — confluent-kafka's synchronous
+#   Same as booking-service/app/consumer.py - confluent-kafka's synchronous
 #   poll() runs in asyncio's thread pool executor so the event loop stays
 #   free to handle concurrent DB writes and Stripe API calls without blocking.
 #
@@ -21,7 +21,7 @@
 #   the PostgreSQL write and the downstream Kafka publish succeed. This is
 #   stricter than the Booking Service because a payment event that is consumed
 #   but not published downstream leaves the booking permanently stuck in
-#   PAYMENT_PENDING — a worse failure mode than a duplicate DB write.
+#   PAYMENT_PENDING - a worse failure mode than a duplicate DB write.
 #
 # Idempotency:
 #   The Payment Service must be idempotent because Kafka guarantees
@@ -253,7 +253,7 @@ def _get_dlq_producer() -> _RawProducer:
         _dlq_producer = _RawProducer(
             {
                 "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-                # Synchronous delivery required for DLQ — we need to know
+                # Synchronous delivery required for DLQ - I need to know
                 # immediately if the DLQ write succeeded or failed.
                 "acks": "all",
                 "retries": 3,
@@ -304,7 +304,7 @@ def _send_to_dlq(
         ],
     )
 
-    # Flush synchronously — DLQ writes must not be buffered. We need to
+    # Flush synchronously - DLQ writes must not be buffered. I need to
     # know immediately if this write failed so the caller can log CRITICAL.
     remaining = producer.flush(timeout=10)
 
@@ -630,7 +630,7 @@ async def _run_consumer_loop(
         # DLQ messages are preserved in booking.failed.dlq — committing here
         # just advances the seat.reserved consumer group offset so the
         # partition is not blocked by one bad message.
-        # asynchronous=False means we wait for the broker to acknowledge
+        # asynchronous=False means I wait for the broker to acknowledge
         # the commit before polling the next message — safer but slightly
         # slower than async commits. For payment events, correctness > speed.
         await loop.run_in_executor(

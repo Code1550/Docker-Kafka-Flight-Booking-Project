@@ -3,13 +3,13 @@
 #
 # Pre-flight startup script for the Notification Service.
 #
-# Startup sequence (simplest of all services — no DB, no Redis):
+# Startup sequence (simplest of all services - no DB, no Redis):
 #   1. Wait for Kafka broker to be reachable
 #   2. Verify SendGrid API key (skipped in mock mode)
 #   3. Start the Kafka consumer loop
 #
 # Why no PostgreSQL wait?
-#   The Notification Service is stateless — it reads from Kafka,
+#   The Notification Service is stateless - it reads from Kafka,
 #   calls SendGrid, and exits. No DB writes, no schema migrations.
 #
 # Why no Redis wait?
@@ -37,7 +37,7 @@ except Exception as e:
   echo "   Kafka not ready — retrying in 3s..."
   sleep 3
 done
-echo "✅ Kafka broker is reachable"
+echo "SUCCESS: Kafka broker is reachable"
 
 # Verify SendGrid API key only in production mode.
 # In mock mode (SENDGRID_MOCK_ENABLED=true, the default in .env),
@@ -65,12 +65,12 @@ except Exception as e:
       echo "   SendGrid verification failed — retrying in 5s..."
       sleep 5
     done
-    echo "✅ SendGrid API key verified"
+    echo "SUCCESS: SendGrid API key verified"
 else
-    echo "ℹ️  SENDGRID_MOCK_ENABLED=true — skipping SendGrid verification"
+    echo "INFO: SENDGRID_MOCK_ENABLED=true - skipping SendGrid verification"
 fi
 
-echo "🚀 Starting Notification Service consumer..."
+echo "INFO: Starting Notification Service consumer..."
 
 # exec replaces the shell with Python making it PID 1.
 # Ensures SIGTERM from Docker is delivered directly to the Python

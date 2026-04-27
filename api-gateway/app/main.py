@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI):
 # ──────────────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Flight Booking — API Gateway",
+    title="Flight Booking - API Gateway",
     description=(
         "Single entry point for the flight booking system. "
         "Validates requests and publishes events to Kafka."
@@ -154,7 +154,7 @@ app = FastAPI(
 # MIDDLEWARE
 # ──────────────────────────────────────────────────────────────────────────────
 
-# CORS — allows the frontend (or Postman) to call the API from a browser.
+# CORS - allows the frontend (or Postman) to call the API from a browser.
 # In production, replace allow_origins=["*"] with your actual frontend domain.
 app.add_middleware(
     CORSMiddleware,
@@ -284,7 +284,7 @@ async def create_booking(
     Accepts a booking request, validates it, and publishes a
     BookingRequestedEvent to the `booking.requested` Kafka topic.
 
-    Returns HTTP 202 Accepted immediately — the booking is not yet confirmed
+    Returns HTTP 202 Accepted immediately - the booking is not yet confirmed
     at this point. The client should poll GET /bookings/{booking_id} or
     listen for a webhook/notification once the full event chain completes.
 
@@ -368,8 +368,8 @@ async def create_booking(
             )
 
         except Exception as exc:
-            # Any failure here — Kafka unavailable, serialization error, etc —
-            # is treated as a 500. The client should retry. We do NOT silently
+            # Any failure here - Kafka unavailable, serialization error, etc -
+            # is treated as a 500. The client should retry. I do NOT silently
             # swallow the error and return 202, because that would make the
             # client believe the booking was accepted when it was not.
             BOOKING_REQUESTS_TOTAL.labels(status="kafka_error").inc()
@@ -414,13 +414,13 @@ async def get_booking_status(booking_id: str):
     Returns the current status of a booking by its ID.
 
     Note: In this architecture the API Gateway does not own the bookings
-    database — that belongs to the Booking Service. This endpoint is a
+    database - that belongs to the Booking Service. This endpoint is a
     placeholder showing where you would either:
       (a) query the Booking Service via an internal HTTP call, or
       (b) read from a shared Redis cache that Booking Service writes to
           after processing each event.
 
-    For the resume project, option (b) is recommended — it keeps services
+    For the resume project, option (b) is recommended - it keeps services
     decoupled and avoids synchronous inter-service HTTP calls.
     """
     # TODO: query Redis cache or call Booking Service internal API

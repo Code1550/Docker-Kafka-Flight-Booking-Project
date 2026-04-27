@@ -7,7 +7,7 @@
 # keeping the final image lean and free of build tools.
 
 # ──────────────────────────────────────────
-# STAGE 1 — builder
+# STAGE 1 - builder
 # ──────────────────────────────────────────
 
 FROM python:3.11-slim AS builder
@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /build
 
-# Copy requirements first — before any app code.
+# Copy requirements first - before any app code.
 # Docker caches each instruction as a layer. By copying requirements.txt
 # before the rest of the source, the pip install layer is only invalidated
 # when requirements.txt actually changes, not on every code edit.
@@ -35,7 +35,7 @@ RUN pip install --upgrade pip && \
 
 
 # ──────────────────────────────────────────
-# STAGE 2 — runtime
+# STAGE 2 - runtime
 # ──────────────────────────────────────────
 
 FROM python:3.11-slim AS runtime
@@ -51,13 +51,13 @@ RUN addgroup --system appgroup && \
 WORKDIR /app
 
 # Copy installed packages from the builder stage into the system site-packages.
-# This is what makes the multi-stage build work — no pip needed at runtime.
+# This is what makes the multi-stage build work - no pip needed at runtime.
 COPY --from=builder /install /usr/local
 
 # Copy the application source code
 COPY app/ ./app/
 
-# The shared/ package is NOT copied here — it is mounted at runtime via
+# The shared/ package is NOT copied here - it is mounted at runtime via
 # the docker-compose volume:
 #   volumes:
 #     - ./shared:/app/shared
@@ -68,7 +68,7 @@ COPY app/ ./app/
 USER appuser
 
 # Expose the port FastAPI will listen on.
-# This is documentation — the actual port binding happens in docker-compose.
+# This is documentation - the actual port binding happens in docker-compose.
 EXPOSE 8000
 
 # Health check so Docker (and docker-compose depends_on) knows when the

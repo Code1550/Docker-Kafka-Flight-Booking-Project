@@ -14,7 +14,7 @@
 #   This producer is intentionally simpler than the API Gateway's producer.
 #   The Booking Service is a consumer-first service — producing is a
 #   side effect of processing, not the primary job. There is no async
-#   wrapper class here; instead we expose thin async functions that wrap
+#   wrapper class here; instead I expose thin async functions that wrap
 #   confluent-kafka's synchronous produce() + flush() calls with
 #   asyncio.run_in_executor() to avoid blocking the event loop.
 #
@@ -60,7 +60,7 @@ def _delivery_callback(err, msg) -> None:
     """
     Called by librdkafka once delivery is confirmed or has permanently failed.
 
-    On failure we log and increment a metric — we do not raise here because
+    On failure I log and increment a metric - I do not raise here because
     this callback runs outside the async context and exceptions would be
     swallowed silently by librdkafka. The caller's flush() will surface
     undelivered message counts separately.
@@ -250,8 +250,8 @@ async def _flush(timeout: float = 15.0) -> None:
 
     Called after every publish in the Booking Service (unlike the API Gateway
     which flushes only on shutdown) because producing here is a side effect
-    of a DB write — we want to know immediately if Kafka rejected the message
-    so we can retry or route to DLQ rather than discovering it at shutdown.
+    of a DB write - I want to know immediately if Kafka rejected the message
+    so I can retry or route to DLQ rather than discovering it at shutdown.
 
     Args:
         timeout: Maximum seconds to wait. 15s is generous — if Kafka cannot
@@ -374,7 +374,7 @@ async def publish_to_dlq(event: BookingFailedDLQEvent) -> None:
     on-call engineers are notified immediately when messages start failing.
 
     Unlike the other publish functions this one does NOT retry on failure —
-    if we cannot even write to the DLQ the process should surface the error
+    if I cannot even write to the DLQ the process should surface the error
     loudly so the ops team knows messages are being lost.
     """
     producer = _get_producer()
@@ -400,7 +400,7 @@ async def publish_to_dlq(event: BookingFailedDLQEvent) -> None:
         ),
     )
 
-    # Flush immediately and synchronously — we need to know right now
+    # Flush immediately and synchronously - I need to know right now
     # whether the DLQ write succeeded or failed.
     remaining: int = await loop.run_in_executor(
         None,

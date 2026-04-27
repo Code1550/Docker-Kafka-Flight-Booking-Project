@@ -17,7 +17,7 @@
 #     - beautifulsoup4 → sanitizes HTML template output before sending
 #
 #   REMOVES:
-#     - sqlalchemy    → no PostgreSQL — Notification Service is stateless
+#     - sqlalchemy    -> no PostgreSQL - Notification Service is stateless
 #     - asyncpg       → no database driver needed
 #     - alembic       → no schema migrations
 #     - redis         → no distributed locking or caching
@@ -25,7 +25,7 @@
 #     - cryptography  → not needed (SendGrid SDK handles its own signing)
 #
 # The Notification Service has the smallest requirements footprint of any
-# service because its single responsibility — send an email or SMS — maps
+# service because its single responsibility - send an email or SMS - maps
 # to a small, well-defined set of Python packages.
 #
 # Pin every package to an exact version (==) for fully reproducible builds.
@@ -41,11 +41,11 @@
 # KAFKA
 # ──────────────────────────────────────────────────────────────────────────────
 
-# confluent-kafka — high-performance Kafka client built on librdkafka (C).
+# confluent-kafka - high-performance Kafka client built on librdkafka (C).
 # Used for:
 #   - Consuming BookingConfirmedEvent from booking.confirmed
 #   - Writing unprocessable messages to booking.failed.dlq
-# The Notification Service is a pure consumer — it produces only DLQ events
+# The Notification Service is a pure consumer - it produces only DLQ events
 # (via a thin inline producer in consumer.py) and never publishes to any
 # normal application topic. There is no separate producer.py module.
 #
@@ -58,7 +58,7 @@ confluent-kafka==2.4.0
 # EMAIL DISPATCH
 # ──────────────────────────────────────────────────────────────────────────────
 
-# sendgrid — official SendGrid Python SDK.
+# sendgrid - official SendGrid Python SDK.
 # Used to send HTML and plain-text confirmation emails via the SendGrid
 # Web API v3. In local development, SENDGRID_MOCK_ENABLED=true (default
 # in .env) bypasses real SendGrid calls and logs the email content instead.
@@ -68,11 +68,11 @@ confluent-kafka==2.4.0
 #   - Template management via SendGrid Dynamic Templates (future feature)
 #   - Automatic SPF/DKIM signing for better inbox deliverability
 #   - Suppression list management (unsubscribes, spam reports)
-#   - REST API instead of SMTP — works through corporate firewalls that
+#   - REST API instead of SMTP - works through corporate firewalls that
 #     block outbound SMTP (port 25/587) but allow HTTPS (port 443)
 sendgrid==6.11.0
 
-# httpx — async HTTP client used to call the SendGrid Web API v3 directly
+# httpx - async HTTP client used to call the SendGrid Web API v3 directly
 # when the sendgrid SDK's synchronous httplib2 transport is too slow.
 # Also used to verify the SendGrid API key in entrypoint.sh and to make
 # outbound calls to Twilio's REST API for SMS dispatch.
@@ -82,7 +82,7 @@ sendgrid==6.11.0
 # implicitly inherited from another service's requirements.
 httpx==0.27.0
 
-# certifi — up-to-date Mozilla CA bundle for TLS verification on HTTPS
+# certifi - up-to-date Mozilla CA bundle for TLS verification on HTTPS
 # calls to api.sendgrid.com and api.twilio.com. Keeps certificate
 # verification current independently of the slim base image's system bundle.
 certifi==2024.2.2
@@ -92,7 +92,7 @@ certifi==2024.2.2
 # SMS DISPATCH (OPTIONAL)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# twilio — official Twilio Python SDK for SMS dispatch.
+# twilio - official Twilio Python SDK for SMS dispatch.
 # Used when notification_type is "sms" or "both" in the BookingConfirmedEvent.
 # In local development, TWILIO_MOCK_ENABLED=true (default) returns a mock
 # SMS response without calling the real Twilio API.
@@ -114,7 +114,7 @@ twilio==9.0.4
 # EMAIL TEMPLATE RENDERING
 # ──────────────────────────────────────────────────────────────────────────────
 
-# jinja2 — the template engine used to render HTML and plain-text email
+# jinja2 - the template engine used to render HTML and plain-text email
 # and SMS templates in the templates/ directory. Templates use Jinja2
 # syntax to interpolate passenger name, flight number, seat details,
 # booking reference, and payment amount into the notification content.
@@ -128,11 +128,11 @@ twilio==9.0.4
 #   - Supports template inheritance (base layout + content blocks)
 #   - Built-in filters for date formatting, currency formatting, etc.
 #   - Auto-escaping prevents XSS in HTML emails (critical for PII content)
-#   - Template files are cacheable — Jinja2 compiles templates once and
+#   - Template files are cacheable - Jinja2 compiles templates once and
 #     reuses the compiled bytecode across all notifications
 jinja2==3.1.4
 
-# markupsafe — Jinja2's dependency for safe HTML string escaping.
+# markupsafe - Jinja2's dependency for safe HTML string escaping.
 # Listed explicitly (rather than relying on Jinja2's transitive install)
 # to pin the version and ensure auto-escaping behaviour is consistent
 # across environments. Auto-escaping prevents a passenger's name
@@ -140,7 +140,7 @@ jinja2==3.1.4
 # rendered as executable HTML in the email body.
 markupsafe==2.1.5
 
-# premailer — transforms CSS stylesheet rules in HTML email templates
+# premailer - transforms CSS stylesheet rules in HTML email templates
 # into inline style attributes on individual HTML elements.
 #
 # Why is CSS inlining necessary for emails?
@@ -156,17 +156,17 @@ markupsafe==2.1.5
 #   clients without relying on stylesheet support.
 premailer==3.10.0
 
-# beautifulsoup4 — HTML parser used by premailer to traverse and modify
+# beautifulsoup4 - HTML parser used by premailer to traverse and modify
 # the email HTML DOM. Also used independently to sanitize HTML template
-# output — stripping any accidentally included script tags, event handlers,
+# output - stripping any accidentally included script tags, event handlers,
 # or other potentially malicious HTML before passing to SendGrid.
 #
-# lxml is used as the parser backend (faster than html.parser) — it is
+# lxml is used as the parser backend (faster than html.parser) - it is
 # installed as a dependency of premailer automatically but listed here
 # for visibility.
 beautifulsoup4==4.12.3
 
-# lxml — fast XML/HTML parser used by beautifulsoup4 and premailer.
+# lxml - fast XML/HTML parser used by beautifulsoup4 and premailer.
 # Significantly faster than Python's built-in html.parser for the DOM
 # traversal premailer performs on every email render. At high notification
 # volume (thousands of emails per minute after a flight cancellation),
@@ -179,22 +179,22 @@ lxml==5.2.2
 # DATA VALIDATION & SERIALIZATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Pydantic v2 — deserializes raw Kafka JSON payloads into typed event models
+# Pydantic v2 - deserializes raw Kafka JSON payloads into typed event models
 # from shared/schemas.py. The Notification Service consumes one event type:
 #   - BookingConfirmedEvent (from booking.confirmed)
 # Deserialized via shared/schemas.py deserialize_event().
 pydantic==2.7.1
 
-# pydantic-settings — loads environment variables from .env into a typed
+# pydantic-settings - loads environment variables from .env into a typed
 # Settings class. Notification Service settings include SendGrid API key,
 # Twilio credentials, mock flags, sender email, and topic names.
-# All credentials are validated at startup — a missing SENDGRID_API_KEY
+# All credentials are validated at startup - a missing SENDGRID_API_KEY
 # raises a clear ValidationError before the consumer starts rather than
 # a cryptic AttributeError mid-notification.
 pydantic-settings==2.2.1
 
-# email-validator — required by Pydantic to validate EmailStr fields.
-# BookingConfirmedEvent carries passenger.email as an EmailStr — validated
+# email-validator - required by Pydantic to validate EmailStr fields.
+# BookingConfirmedEvent carries passenger.email as an EmailStr - validated
 # during deserialization to catch malformed email addresses before
 # attempting to send via SendGrid (which would return a 400 Bad Request).
 email-validator==2.1.1
@@ -204,7 +204,7 @@ email-validator==2.1.1
 # ASYNC RUNTIME
 # ──────────────────────────────────────────────────────────────────────────────
 
-# uvloop — high-performance async event loop.
+# uvloop - high-performance async event loop.
 # The Notification Service is I/O-bound: every confirmed booking triggers
 # a SendGrid HTTPS API call (~200-500ms) and optionally a Twilio HTTPS
 # call (~300-600ms). uvloop's 2-4x throughput improvement over the default
@@ -217,13 +217,13 @@ uvloop==0.19.0
 # RETRY & RESILIENCE
 # ──────────────────────────────────────────────────────────────────────────────
 
-# tenacity — retry library used in three places:
+# tenacity - retry library used in three places:
 #   1. Waiting for Kafka to be available on startup
 #   2. Retrying transient SendGrid API errors (rate limits, 5xx responses)
 #      with exponential backoff before routing to DLQ
 #   3. Retrying transient Twilio API errors (network timeouts, 5xx responses)
 #
-# SendGrid rate limits email sends per second — tenacity's
+# SendGrid rate limits email sends per second - tenacity's
 # wait_exponential_jitter() implements the backoff Sendgrid recommends
 # in their rate limit documentation (429 Too Many Requests response).
 tenacity==8.3.0
@@ -233,7 +233,7 @@ tenacity==8.3.0
 # OBSERVABILITY
 # ──────────────────────────────────────────────────────────────────────────────
 
-# prometheus-client — exposes Prometheus metrics on port 8004.
+# prometheus-client - exposes Prometheus metrics on port 8004.
 # Notification Service metrics:
 #   - notifications_sent_total          (labels: type=email|sms|both,
 #                                                status=success|failed|mock)
@@ -244,15 +244,15 @@ tenacity==8.3.0
 #   - template_render_duration_seconds  (Jinja2 rendering time)
 #
 # The notifications_sent_total{type="email", status="success"} counter
-# is the primary SLI for the Notification Service — alert when it stops
+# is the primary SLI for the Notification Service - alert when it stops
 # incrementing during active booking periods.
 prometheus-client==0.20.0
 
-# python-json-logger — structured JSON log output.
+# python-json-logger - structured JSON log output.
 # Every notification log line includes booking_id, correlation_id,
 # passenger_email, notification_type, sendgrid_message_id, and
 # dispatch_duration_ms as structured fields parseable by Grafana Loki.
-# This is especially valuable for GDPR audit trails — "when was passenger
+# This is especially valuable for GDPR audit trails - "when was passenger
 # X notified of booking Y?" can be answered by querying the log store
 # without accessing the application database.
 python-json-logger==2.0.7
@@ -262,10 +262,10 @@ python-json-logger==2.0.7
 # UTILITIES
 # ──────────────────────────────────────────────────────────────────────────────
 
-# python-dotenv — loads .env variables into os.environ at startup.
+# python-dotenv - loads .env variables into os.environ at startup.
 python-dotenv==1.0.1
 
-# babel — internationalisation library used for locale-aware date, time,
+# babel - internationalisation library used for locale-aware date, time,
 # and currency formatting in email and SMS templates.
 #
 # Why Babel for a domestic flight booking system?
@@ -280,20 +280,20 @@ python-dotenv==1.0.1
 #   $299.99 for USD passengers, £235.50 for GBP passengers
 babel==2.15.0
 
-# pytz — timezone database used alongside Babel for datetime localisation.
+# pytz - timezone database used alongside Babel for datetime localisation.
 # Maps IANA timezone names (e.g. "America/New_York") to UTC offsets for
 # correct departure time display in confirmation emails.
 # pytz is preferred over zoneinfo (Python 3.9+) for compatibility with
 # Babel's timezone handling which expects pytz-style timezone objects.
 pytz==2024.1
 
-# python-dateutil — robust datetime parsing for departure_time and
+# python-dateutil - robust datetime parsing for departure_time and
 # arrival_time strings in BookingConfirmedEvent payloads. Handles edge
 # cases in ISO 8601 strings (timezone suffixes, microseconds) that
 # Python's datetime.fromisoformat() may reject on Python < 3.11.
 python-dateutil==2.9.0
 
-# bleach — HTML sanitization library for cleaning passenger-supplied
+# bleach - HTML sanitization library for cleaning passenger-supplied
 # content before embedding in email templates.
 # Prevents stored XSS attacks where a passenger's name or special request
 # field contains HTML tags or JavaScript that would execute in the
@@ -304,12 +304,12 @@ python-dateutil==2.9.0
 # With bleach:    name renders as "Jane &lt;script&gt;alert(1)&lt;/script&gt; Doe"
 bleach==6.1.0
 
-# aiofiles — async file I/O for reading Jinja2 template files from the
+# aiofiles - async file I/O for reading Jinja2 template files from the
 # templates/ directory without blocking the asyncio event loop.
 # Without aiofiles, template reads are synchronous and block the event
-# loop during file I/O — measurable at high notification volume when
+# loop during file I/O - measurable at high notification volume when
 # templates are read from a slow filesystem (e.g. NFS-mounted in k8s).
 # In practice, Jinja2 caches compiled templates in memory so aiofiles
-# is only called once per template per process lifetime — the overhead
+# is only called once per template per process lifetime - the overhead
 # is minimal but the principle of non-blocking I/O is maintained.
 aiofiles==23.2.1

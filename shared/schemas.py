@@ -128,7 +128,7 @@ class PaymentDetail(BaseModel):
 # BASE EVENT
 # All events inherit from this. It guarantees that every message on every
 # Kafka topic carries a unique ID, a timestamp, and a correlation ID that
-# ties together all events belonging to the same booking request — essential
+# ties together all events belonging to the same booking request - essential
 # for distributed tracing and debugging.
 # ──────────────────────────────────────────────────────────────────────────────
 
